@@ -2,11 +2,11 @@
 
 **HitStar, the OpenSource Hitster clone leveraging your own songs!**
 
-Build your own version of the game [Hitster](https://hitstergame.com/).
-Full offline- & online availability.
-Completely independent from online plattforms (Spotify, YouTube, Deezer, etc.).
-Leveraging your own playlists & music-collection.
-Includes also a full digital gameplay-version, without the need to print out cards.
+- Build your own version of the game [Hitster](https://hitstergame.com/).
+- Full offline- & online availability.
+- Completely independent from online plattforms (Spotify, YouTube, Deezer, etc.).
+- Leveraging your own playlists & music-collection.
+- Includes also a full digital gameplay-version, without the need to print out cards.
 
 ## ⚡ What it's about?!
 Hitster is a music quiz card game developed and released by [Jumbo](https://hitstergame.com/).
@@ -20,7 +20,7 @@ This means that you can make a lot of variations for different kind of audiences
 Want to play with your K-Pop loving friends? Simply generate a card game with a K-Pop playlist!
 Want to keep it at the more general hits? Use the open playlists as inspiration.
 Do you want to avoid the hassle to print out the cards?
-In the app you have the chance to pick random songs from desired folders without the need to scan a QR-Code. This is perfect for a on the go quizz-session or Hitster-Bingo.
+In the app you have the chance to pick random songs from desired folders without the need to scan a QR-Code. This is perfect for an on the go quizz-session or Hitster-Bingo.
 
 
 Anyway. In the [description](https://github.com/Born2Root/HitStar/#how-to-build-your-own-game) you learn howto:
