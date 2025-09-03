@@ -6,6 +6,7 @@ Build your own version of the game [Hitster](https://hitstergame.com/).
 Full offline- & online availability.
 Completely independent from online plattforms (Spotify, YouTube, Deezer, etc.).
 Leveraging your own playlists & music-collection.
+Includes also a full digital gameplay-version, without the need to print out cards.
 
 ## ⚡ What it's about?!
 Hitster is a music quiz card game developed and released by [Jumbo](https://hitstergame.com/).
@@ -18,12 +19,15 @@ With HitStar you can build your own version of the game.
 This means that you can make a lot of variations for different kind of audiences.
 Want to play with your K-Pop loving friends? Simply generate a card game with a K-Pop playlist!
 Want to keep it at the more general hits? Use the open playlists as inspiration.
+Do you want to avoid the hassle to print out the cards?
+In the app you have the chance to pick random songs from desired folders without the need to scan a QR-Code. This is perfect for a on the go quizz-session or Hitster-Bingo.
 
-In the [description](https://github.com/Born2Root/HitStar/#how-to-build-your-own-game) you learn howto:
+
+Anyway. In the [description](https://github.com/Born2Root/HitStar/#how-to-build-your-own-game) you learn howto:
 - Prepare and gather your music files
 - Design and generate your own cards
 - Print out and prepare the game material
-- Install and adjust the App for your mobile device
+- Install and adjust the App for your mobile device (for usage with printed cards and without them)
 - Play & have a lot of fun!
 
 **Key Points of the whole gameplay:**
@@ -184,16 +188,19 @@ Now we are ready to play!
 
 ## How to play
 
-Refer [the original game rules](https://hitstergame.com/en-us/how-to-play/) for how to play the game itself. You
-do not need to connect Spotify. Scanning a QR-Code from one of the cards with the mobiel app will automatically play the song.
+Refer [the original game rules](https://hitstergame.com/en-us/how-to-play/) for how to play the game itself.
+Scanning a QR-Code from one of the cards with the mobiel app will automatically play the song.
 To do this install the .apk from this repo on you Android phone.
 After launching the app, press the big scan button in the middle.
 The app will switch to camera mode so you are able to scan a game card QR-Code and play the according music-file.
 
 To configure the path where the music is stored, click on the setting button, and adjust the path to your phones local storage or add the link to you static webserver.
+For a cardless offline gameplay you can select subfolders from that local storage path. Afterwards you can click the "Random Play" button beside the play/ pause.
+After pressing the Random-Play button, the app will play a random song from one of the selected folders. You do not have the need to scan a card.
+The resolve, artist, song and year, just click on the music note icon which will show the relevant information.
 
 
-Here is a short rundown of the game itself:
+Here is a short rundown of the classic card game itself:
 * Everyone receives a hit card at the beginning of a game. A hit contains information about a song, containing its title, the artist and year when it was released.
 * A short snippet of a hit is played to you. You'll have to guess if it was released either before or after the hit that you already have in your collection.
 * If you guessed correctly, you'll earn the hit card and add it to your collection. The game will continue to the next player.
