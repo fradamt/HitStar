@@ -48,7 +48,7 @@ The design is fully fexible and you can adjust it to your needs.
 <img width="570" height="323" alt="card-example" src="https://github.com/user-attachments/assets/9ee37332-8429-41ba-9739-2cd3e73c68ff" />
 
 The mobile App can be downloaded from the repo (at the moment available for Android).
-The App is completely OpenSource and written with MITAppInventor.
+The App is completely OpenSource and written with [MITAppInventor](https://appinventor.mit.edu/).
    
 <img width="245" height="340" alt="mobile app" src="https://github.com/user-attachments/assets/41dc5fd6-cfca-4870-9d6b-e1f0c2973f34" />
 
