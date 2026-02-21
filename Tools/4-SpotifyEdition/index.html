@@ -378,6 +378,11 @@ input[type="file"] { display: none; }
 @keyframes popIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .card-popout.popout-p0 { border-color: rgba(231,76,60,0.5); }
 .card-popout.popout-p1 { border-color: rgba(52,152,219,0.5); }
+.card-popout-art {
+  width: 160px; height: 160px; border-radius: 12px; object-fit: cover;
+  margin: 0 auto 14px; display: block;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
 .card-popout-year {
   font-size: 52px; font-weight: 800; line-height: 1.1; margin-bottom: 8px;
 }
@@ -563,6 +568,17 @@ input[type="file"] { display: none; }
 .deck-card svg { width: 32px; height: 32px; opacity: 0.4; }
 .deck-card.deck-p0 svg { fill: var(--p0); }
 .deck-card.deck-p1 svg { fill: var(--p1); }
+@keyframes deckDeal {
+  0% { transform: scale(1); opacity: 1; }
+  60% { transform: scale(0.7) translateY(-30px); opacity: 0.5; }
+  100% { transform: scale(0.3) translateY(-60px); opacity: 0; }
+}
+.deck-card.dealing { animation: deckDeal 0.4s ease-in forwards; pointer-events: none; }
+@keyframes deckPulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 3px 3px 0 var(--card-bg), 6px 6px 0 var(--surface), 0 0 0 0 rgba(29,185,84,0); }
+  50% { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 3px 3px 0 var(--card-bg), 6px 6px 0 var(--surface), 0 0 16px 4px rgba(29,185,84,0.35); }
+}
+.deck-card.deck-next-turn { animation: deckPulse 1.5s ease-in-out infinite; cursor: pointer; }
 .deck-label { font-size: 12px; color: var(--text-dim); }
 .deck-count {
   position: absolute; top: -8px; right: -8px;
@@ -1588,8 +1604,13 @@ async function searchSpotifyId(song) {
     var data = await resp.json();
     var tracks = data.tracks && data.tracks.items;
     if (tracks && tracks.length > 0) {
-      var newId = tracks[0].id;
+      var track = tracks[0];
+      var newId = track.id;
       song.spotifyId = newId;
+      // Grab album art (prefer 300px, fall back to largest)
+      if (track.album && track.album.images && track.album.images.length > 0) {
+        song.albumArt = (track.album.images[1] || track.album.images[0]).url;
+      }
       var idx = songs.indexOf(song);
       if (idx >= 0) {
         songs[idx].spotifyId = newId;
@@ -2556,19 +2577,27 @@ function renderGameBoard() {
     deckCount.textContent = remaining;
     deckCard.appendChild(deckCount);
   }
-  // Click to play/resume the current game song
-  deckCard.addEventListener('click', function() {
-    if (gameState.currentSong) {
-      popoutPlayingSong = null;
-      activePlayingSong = gameState.currentSong;
-      startSDKPlayback(gameState.currentSong);
-      updateNowPlayingBar(gameState.currentSong, true);
-    }
-  });
+  // During waiting phase: click deck to advance to next turn
+  // Otherwise: click to play/resume current song
+  if (gameState.phase === 'waiting') {
+    deckCard.classList.add('deck-next-turn');
+    deckCard.addEventListener('click', function() {
+      gamePlayNext();
+    });
+  } else {
+    deckCard.addEventListener('click', function() {
+      if (gameState.currentSong) {
+        popoutPlayingSong = null;
+        activePlayingSong = gameState.currentSong;
+        startSDKPlayback(gameState.currentSong);
+        updateNowPlayingBar(gameState.currentSong, true);
+      }
+    });
+  }
   deck.appendChild(deckCard);
   var deckLabel = document.createElement('div');
   deckLabel.className = 'deck-label';
-  deckLabel.textContent = 'Deck';
+  deckLabel.textContent = gameState.phase === 'waiting' ? 'Next turn' : 'Deck';
   deck.appendChild(deckLabel);
   pilesContainer.appendChild(deck);
 
@@ -2683,6 +2712,25 @@ function showCardPopout(song, playerIdx) {
 
   var popout = document.createElement('div');
   popout.className = 'card-popout popout-p' + playerIdx;
+
+  // Album art
+  var artEl = document.createElement('img');
+  artEl.className = 'card-popout-art';
+  artEl.alt = '';
+  artEl.style.display = 'none';
+  if (song.albumArt) {
+    artEl.src = song.albumArt;
+    artEl.style.display = 'block';
+  } else if (sdkToken && song.artist && song.title) {
+    // Fetch album art on-demand
+    searchSpotifyId(song).then(function() {
+      if (song.albumArt) {
+        artEl.src = song.albumArt;
+        artEl.style.display = 'block';
+      }
+    });
+  }
+  popout.appendChild(artEl);
 
   var yearEl = document.createElement('div');
   yearEl.className = 'card-popout-year';
@@ -2863,30 +2911,17 @@ async function checkPlacement(playerIdx, position) {
     await sleep(400);
   }
 
-  // Wait for player to explicitly advance to next turn
+  // Animate deck card dealing out, then switch to next player
+  var deckCardEl = document.querySelector('.deck-card');
+  if (deckCardEl) {
+    deckCardEl.classList.add('dealing');
+    await sleep(400);
+  }
+
   gameState.phase = 'waiting';
   gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.players.length;
   renderGameBoard();
   setGameStatus('', '');
-  showNextTurnButton();
-}
-
-function showNextTurnButton() {
-  var existing = document.getElementById('game-next-turn-btn');
-  if (existing) existing.remove();
-
-  var btn = document.createElement('button');
-  btn.id = 'game-next-turn-btn';
-  btn.className = 'btn btn-block';
-  btn.style.cssText = 'margin-top:12px;font-size:18px;padding:16px;max-width:400px;align-self:center;';
-  btn.textContent = 'Next Turn \u2192';
-  btn.addEventListener('click', function() {
-    btn.remove();
-    gamePlayNext();
-  });
-
-  var body = document.getElementById('game-body');
-  if (body) body.appendChild(btn);
 }
 
 function showVictory(playerIdx) {
