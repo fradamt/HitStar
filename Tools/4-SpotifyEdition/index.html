@@ -1512,11 +1512,13 @@ async function playTrackById(trackId) {
 async function startSDKPlayback(song) {
   if (!sdkReady || !sdkDeviceId || !sdkToken) return false;
 
-  // Resolve track ID if missing
-  if (!song.spotifyId) {
-    var resolved = await searchSpotifyId(song);
-    if (!resolved) return false;
+  // Always verify the track ID via search to catch wrong-song mappings.
+  // searchSpotifyId updates song.spotifyId and caches the result.
+  if (song.artist && song.title) {
+    await searchSpotifyId(song);
   }
+
+  if (!song.spotifyId) return false;
 
   try {
     var resp = await playTrackById(song.spotifyId);
@@ -1536,15 +1538,7 @@ async function startSDKPlayback(song) {
       return false;
     }
 
-    // 403 or 404 likely means a stale/invalid track ID — try re-resolving
     if (resp.status === 403 || resp.status === 404) {
-      var oldId = song.spotifyId;
-      song.spotifyId = null; // clear so searchSpotifyId does a fresh lookup
-      var freshId = await searchSpotifyId(song);
-      if (freshId && freshId !== oldId) {
-        var retry = await playTrackById(freshId);
-        if (retry.status === 204 || retry.status === 200) return true;
-      }
       showToast('Track not available on Spotify', 'error');
       return false;
     }
