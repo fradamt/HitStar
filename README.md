@@ -210,6 +210,42 @@ There is more to it, like tokens you can earn by also guessing title and artist 
 I can also recommend the much more interactive BINGO-Version. In the repo you can find a [ready to print PDF](https://github.com/Born2Root/HitStar/blob/main/Print%20-%20HitStar%20-%20Bingo.pdf) version of the BINGO-material (Spin Board and Cards).
 
 
+## 🎵 Spotify Edition (No Downloads Needed)
+
+Want to play HitStar without downloading any music files? The **Spotify Edition** is a lightweight web app that plays songs directly through the Spotify app on your phone.
+
+### How it works
+- **No OAuth, no API keys, no server needed** for gameplay
+- Songs open directly in the Spotify app via deep links (`open.spotify.com/track/...`)
+- Your Spotify Premium account handles playback
+- Works on any Android phone with a browser and Spotify installed
+- Can be installed as a home screen app (PWA) for a native-app feel
+
+### Quick Start
+1. Open `Tools/4-SpotifyEdition/index.html` in your phone's browser (host it on any static web server, or open it locally)
+2. The app comes with 20 example songs. Add your own via Settings > Import
+3. Tap **Random Song** to play without cards, or **Scan Card** to use printed QR codes
+4. The song opens in Spotify. Players guess the year. Tap **Reveal** to show the answer
+
+### Adding Your Own Songs
+There are three ways to populate your song library:
+
+**Option 1: Text Import (easiest)**
+In the app's Settings, paste lines in the format:
+```
+Category\Artist - Title|Year|SpotifyTrackID
+```
+The Spotify Track ID is optional. Find it by sharing a song in Spotify and copying the link - the ID is the part after `/track/`.
+
+**Option 2: JSON Import**
+Import a JSON file with song data. See `Tools/4-SpotifyEdition/songs-example.json` for the format.
+
+**Option 3: Auto-Lookup**
+If you have songs without Spotify Track IDs, the app can look them up using the Spotify Web API. This requires a free [Spotify Developer](https://developer.spotify.com/dashboard) app (takes 2 minutes to set up). This is the only part that needs any kind of API access - and it's purely optional. Songs without Track IDs fall back to Spotify search (one extra tap to play).
+
+### QR Codes for Spotify Edition
+Use the updated QR generator script `Tools/1-QRGenerator/Hitstar-QR-Generator-Spotify.ps1` to create QR codes containing Spotify deep links. These codes work with **any** QR scanner app - they open the song directly in Spotify without needing the HitStar app at all.
+
 ### 💬 FAQ
 
 #### Changing or enhancing the Android mobile app

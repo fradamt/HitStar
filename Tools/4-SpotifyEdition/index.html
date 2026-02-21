@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>HitStar - Spotify Edition</title>
+<link rel="manifest" href="manifest.json">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --accent: #1db954;
+  --accent-hover: #1ed760;
+  --text: #ffffff;
+  --text-dim: #b3b3b3;
+  --danger: #e74c3c;
+  --card-bg: #222244;
+}
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.screen { display: none; min-height: 100vh; padding: 16px; padding-bottom: 80px; }
+.screen.active { display: flex; flex-direction: column; }
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-top: 1px solid #333;
+  display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom);
+}
+.nav button {
+  flex: 1; background: none; border: none; color: var(--text-dim);
+  padding: 10px 4px; font-size: 11px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.nav button.active { color: var(--accent); }
+.nav button svg { width: 24px; height: 24px; }
+h1 { font-size: 22px; margin-bottom: 12px; }
+h2 { font-size: 18px; margin-bottom: 10px; color: var(--text-dim); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--accent); color: #000; border: none; border-radius: 24px;
+  padding: 14px 28px; font-size: 16px; font-weight: 600; cursor: pointer;
+  transition: background 0.2s;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn:active { transform: scale(0.97); }
+.btn-outline {
+  background: transparent; color: var(--accent); border: 2px solid var(--accent);
+}
+.btn-outline:hover { background: rgba(29,185,84,0.1); color: var(--accent); }
+.btn-sm { padding: 8px 18px; font-size: 14px; }
+.btn-danger { background: var(--danger); }
+.btn-danger:hover { background: #c0392b; }
+.btn-block { width: 100%; }
+
+/* HOME */
+#home { align-items: center; justify-content: center; gap: 20px; text-align: center; }
+#home .logo { font-size: 36px; font-weight: 800; letter-spacing: 2px; }
+#home .logo span { color: var(--accent); }
+#home .subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 20px; }
+.home-actions { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 300px; }
+.home-actions .btn { font-size: 18px; padding: 18px; }
+.song-count { color: var(--text-dim); font-size: 13px; margin-top: 8px; }
+
+/* SCANNER */
+#scanner { align-items: center; }
+#scanner-container {
+  width: 100%; max-width: 400px; margin: 16px auto;
+  border-radius: 12px; overflow: hidden; background: #000;
+}
+#scanner-status { color: var(--text-dim); text-align: center; margin: 10px 0; }
+
+/* NOW PLAYING */
+#now-playing { align-items: center; justify-content: center; gap: 20px; text-align: center; }
+.np-card {
+  background: var(--card-bg); border-radius: 16px; padding: 30px 20px;
+  width: 100%; max-width: 360px;
+}
+.np-hidden-info { filter: blur(20px); transition: filter 0.5s; user-select: none; }
+.np-hidden-info.revealed { filter: none; }
+.np-category {
+  display: inline-block; background: var(--surface2); padding: 4px 14px;
+  border-radius: 12px; font-size: 13px; color: var(--accent); margin-bottom: 14px;
+}
+.np-artist { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.np-title { font-size: 16px; color: var(--text-dim); margin-bottom: 16px; }
+.np-year {
+  font-size: 52px; font-weight: 800; color: var(--accent);
+  margin: 10px 0;
+}
+.np-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; width: 100%; max-width: 360px; }
+.np-actions .btn { justify-content: center; }
+.reveal-hint { color: var(--text-dim); font-size: 13px; margin-top: 6px; }
+
+/* SONGS MANAGER */
+#songs { gap: 14px; }
+.songs-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.category-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.cat-chip {
+  background: var(--surface2); border: 1px solid #444; border-radius: 14px;
+  padding: 6px 14px; font-size: 13px; color: var(--text-dim); cursor: pointer;
+}
+.cat-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.song-list { display: flex; flex-direction: column; gap: 6px; }
+.song-item {
+  background: var(--surface); border-radius: 10px; padding: 12px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.song-item-info { flex: 1; min-width: 0; }
+.song-item-info .artist { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.song-item-info .title { font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.song-item-info .meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.song-item-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: 8px; }
+.icon-btn {
+  background: var(--surface2); border: none; color: var(--text-dim);
+  width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.icon-btn:hover { color: var(--text); }
+.song-empty { text-align: center; color: var(--text-dim); padding: 40px 20px; }
+
+/* SETTINGS */
+#settings { gap: 16px; }
+.setting-group { background: var(--surface); border-radius: 12px; padding: 16px; }
+.setting-group h3 { font-size: 15px; margin-bottom: 10px; }
+.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+.setting-row label { color: var(--text-dim); font-size: 14px; }
+textarea, input[type="text"], input[type="number"], select {
+  background: var(--bg); border: 1px solid #444; border-radius: 8px;
+  color: var(--text); padding: 10px; width: 100%; font-size: 14px;
+  font-family: inherit;
+}
+textarea { min-height: 120px; resize: vertical; }
+.import-export { display: flex; gap: 10px; margin-top: 10px; }
+input[type="file"] { display: none; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+  background: var(--surface); border-radius: 16px; padding: 24px;
+  width: 100%; max-width: 420px; max-height: 80vh; overflow-y: auto;
+}
+.modal h2 { margin-bottom: 16px; }
+.modal .form-group { margin-bottom: 14px; }
+.modal .form-group label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 4px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+.modal-actions .btn { flex: 1; }
+
+/* Spotify badge */
+.spotify-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--accent); font-size: 13px;
+}
+.spotify-badge svg { width: 18px; height: 18px; fill: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- HOME SCREEN -->
+<div id="home" class="screen active">
+  <div class="logo">Hit<span>Star</span></div>
+  <div class="subtitle">Spotify Edition &mdash; No downloads needed</div>
+  <div class="home-actions">
+    <button class="btn" onclick="startScanner()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+      Scan Card
+    </button>
+    <button class="btn btn-outline" onclick="playRandom()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+      Random Song
+    </button>
+  </div>
+  <div class="song-count" id="song-count"></div>
+  <div class="spotify-badge">
+    <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+    Plays through your Spotify app
+  </div>
+</div>
+
+<!-- SCANNER SCREEN -->
+<div id="scanner" class="screen">
+  <h1>Scan a Card</h1>
+  <div id="scanner-container"></div>
+  <p id="scanner-status">Point your camera at a HitStar QR code</p>
+  <button class="btn btn-outline btn-block" onclick="stopScanner(); showScreen('home')" style="margin-top:12px">Cancel</button>
+</div>
+
+<!-- NOW PLAYING SCREEN -->
+<div id="now-playing" class="screen">
+  <div class="np-card">
+    <div class="np-category" id="np-category"></div>
+    <div class="np-hidden-info" id="np-info">
+      <div class="np-artist" id="np-artist"></div>
+      <div class="np-title" id="np-title"></div>
+      <div class="np-year" id="np-year"></div>
+    </div>
+  </div>
+  <div class="reveal-hint" id="reveal-hint">Tap "Reveal" when ready to see the answer</div>
+  <div class="np-actions">
+    <button class="btn btn-block" id="btn-open-spotify" onclick="openCurrentInSpotify()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      Open in Spotify
+    </button>
+    <button class="btn btn-outline btn-block" id="btn-reveal" onclick="revealSong()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      Reveal
+    </button>
+    <button class="btn btn-outline btn-block" onclick="playRandom()">Next Random</button>
+    <button class="btn btn-outline btn-block btn-sm" onclick="showScreen('home')" style="border-color:#555;color:#999">Back to Home</button>
+  </div>
+</div>
+
+<!-- SONGS SCREEN -->
+<div id="songs" class="screen">
+  <div class="songs-header">
+    <h1>Song Library</h1>
+    <button class="btn btn-sm" onclick="showAddSongModal()">+ Add</button>
+  </div>
+  <div class="category-filters" id="category-filters"></div>
+  <div class="song-list" id="song-list"></div>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div id="settings" class="screen">
+  <h1>Settings</h1>
+
+  <div class="setting-group">
+    <h3>Import / Export Songs</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
+      Import a JSON song database or export your current one.
+    </p>
+    <div class="import-export">
+      <button class="btn btn-sm btn-outline" onclick="document.getElementById('import-file').click()">Import JSON</button>
+      <input type="file" id="import-file" accept=".json" onchange="importSongs(this)">
+      <button class="btn btn-sm btn-outline" onclick="exportSongs()">Export JSON</button>
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <h3>Import from Spotify Playlist</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
+      Import songs directly from a Spotify playlist. Paste a playlist URL or URI.<br>
+      Requires a Spotify Client ID (set below in "Spotify Track Lookup").
+    </p>
+    <input type="text" id="playlist-url" placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..." style="margin-bottom:8px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="importFromPlaylist()">Import Playlist</button>
+      <label style="font-size:13px;color:var(--text-dim)">
+        <input type="checkbox" id="playlist-category-auto" checked> Use playlist name as category
+      </label>
+    </div>
+    <input type="text" id="playlist-category-manual" placeholder="Or enter category manually..." style="margin-top:8px;display:none">
+    <div id="playlist-status" style="font-size:13px;color:var(--text-dim);margin-top:8px"></div>
+    <div style="font-size:12px;color:var(--text-dim);margin-top:10px;border-top:1px solid #333;padding-top:10px">
+      <strong>Original Hitster playlists:</strong><br>
+      <a href="https://open.spotify.com/user/ta8hnikdhdctwuvkj2nl9itix/playlists" target="_blank" style="color:var(--accent)">open.spotify.com/user/ta8hnikdhdctwuvkj2nl9itix/playlists</a>
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <h3>Import from CSV / Text</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
+      Paste lines in the format: <code>Category\Artist - Title|Year|SpotifyID</code><br>
+      Year and SpotifyID are optional. SpotifyID is the Spotify track ID (the part after <code>track/</code> in a Spotify URL).
+    </p>
+    <textarea id="csv-input" placeholder="Summer\SNAP! - The Power|1990|1pFMpMlSTEHN2MwBgJwkr8&#10;Rock\Queen - Bohemian Rhapsody|1975|7tFiyTwD0nx5a1eklYtX2J&#10;Basis\Alicia Keys - No One|2007"></textarea>
+    <button class="btn btn-sm" style="margin-top:8px" onclick="importFromText()">Import Lines</button>
+  </div>
+
+  <div class="setting-group">
+    <h3>Spotify Track Lookup</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
+      Songs without a Spotify Track ID will fall back to Spotify search (one extra tap to play).
+      To get direct playback, you can look up track IDs using the Spotify Web API.
+    </p>
+    <div class="form-group" style="margin-bottom:10px">
+      <label style="font-size:13px;color:var(--text-dim)">Spotify Client ID (from <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--accent)">developer.spotify.com</a>)</label>
+      <input type="text" id="spotify-client-id" placeholder="e.g. a1b2c3d4e5f6..." onchange="saveClientId()">
+    </div>
+    <button class="btn btn-sm btn-outline" onclick="spotifyLookupAll()">Look Up Missing Track IDs</button>
+    <div id="lookup-status" style="font-size:13px;color:var(--text-dim);margin-top:8px"></div>
+  </div>
+
+  <div class="setting-group">
+    <h3>Game Settings</h3>
+    <div class="setting-row">
+      <label>Auto-reveal after opening Spotify</label>
+      <select id="setting-autoreveal" onchange="saveSetting('autoReveal', this.value)">
+        <option value="no">No</option>
+        <option value="yes">Yes</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>Active categories for Random mode</label>
+      <div class="category-filters" id="settings-categories"></div>
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <h3>About</h3>
+    <p style="font-size:13px;color:var(--text-dim)">
+      HitStar Spotify Edition<br>
+      A zero-download companion for the HitStar music quiz game.<br>
+      Songs play directly in your Spotify app &mdash; no OAuth, no API keys needed for gameplay.<br><br>
+      Built as part of the <a href="https://github.com/Born2Root/HitStar" target="_blank" style="color:var(--accent)">HitStar</a> open source project.
+    </p>
+  </div>
+</div>
+
+<!-- ADD/EDIT SONG MODAL -->
+<div class="modal-overlay hidden" id="song-modal">
+  <div class="modal">
+    <h2 id="modal-title">Add Song</h2>
+    <div class="form-group">
+      <label>Artist *</label>
+      <input type="text" id="song-artist" placeholder="e.g. Queen">
+    </div>
+    <div class="form-group">
+      <label>Title *</label>
+      <input type="text" id="song-title" placeholder="e.g. Bohemian Rhapsody">
+    </div>
+    <div class="form-group">
+      <label>Year *</label>
+      <input type="number" id="song-year" placeholder="e.g. 1975" min="1900" max="2030">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <input type="text" id="song-category" placeholder="e.g. Rock, Summer, Basis" list="categories-datalist">
+      <datalist id="categories-datalist"></datalist>
+    </div>
+    <div class="form-group">
+      <label>Spotify Track ID (optional)</label>
+      <input type="text" id="song-spotify" placeholder="e.g. 7tFiyTwD0nx5a1eklYtX2J">
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px">
+        Find this in Spotify: Share &rarr; Copy Link &rarr; the ID is after /track/
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeSongModal()">Cancel</button>
+      <button class="btn" id="modal-save-btn" onclick="saveSong()">Add Song</button>
+    </div>
+  </div>
+</div>
+
+<!-- NAVIGATION -->
+<nav class="nav">
+  <button onclick="showScreen('home')" id="nav-home" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
+    Home
+  </button>
+  <button onclick="startScanner()" id="nav-scan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+    Scan
+  </button>
+  <button onclick="showScreen('songs')" id="nav-songs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13M9 18c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3zM21 16c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z"/></svg>
+    Songs
+  </button>
+  <button onclick="showScreen('settings')" id="nav-settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<!-- QR Scanner library -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<script>
+// ==================== STATE ====================
+let songs = [];
+let currentSong = null;
+let scanner = null;
+let isScanning = false;
+let editingIndex = -1;
+let activeCategoryFilter = 'all';
+let gameSettings = { autoReveal: 'no', activeCategories: [], spotifyClientId: '' };
+let spotifyToken = null;
+let pendingAction = null; // 'lookup' or 'playlist'
+
+const STORAGE_KEY = 'hitstar_songs';
+const SETTINGS_KEY = 'hitstar_settings';
+const PENDING_KEY = 'hitstar_pending_action';
+
+// ==================== INIT ====================
+function init() {
+  loadSongs();
+  loadSettings();
+  updateSongCount();
+  renderSongList();
+  renderCategoryFilters();
+
+  // Check for Spotify OAuth callback
+  const hash = window.location.hash;
+  if (hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substring(1));
+    spotifyToken = params.get('access_token');
+    window.location.hash = '';
+    pendingAction = localStorage.getItem(PENDING_KEY) || 'lookup';
+    localStorage.removeItem(PENDING_KEY);
+    if (pendingAction === 'playlist') {
+      importPlaylistWithToken();
+    } else {
+      spotifyLookupWithToken();
+    }
+  }
+
+  // Toggle manual category input visibility
+  const autoCheck = document.getElementById('playlist-category-auto');
+  if (autoCheck) {
+    autoCheck.addEventListener('change', () => {
+      document.getElementById('playlist-category-manual').style.display = autoCheck.checked ? 'none' : 'block';
+    });
+  }
+
+  // Load example songs if empty
+  if (songs.length === 0) {
+    loadExampleSongs();
+  }
+}
+
+// ==================== SONGS DATA ====================
+function loadSongs() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) songs = JSON.parse(stored);
+  } catch (e) { songs = []; }
+}
+
+function saveSongsToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+  updateSongCount();
+}
+
+function loadSettings() {
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if (stored) gameSettings = { ...gameSettings, ...JSON.parse(stored) };
+    document.getElementById('setting-autoreveal').value = gameSettings.autoReveal || 'no';
+    document.getElementById('spotify-client-id').value = gameSettings.spotifyClientId || '';
+  } catch (e) {}
+}
+
+function saveSetting(key, value) {
+  gameSettings[key] = value;
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(gameSettings));
+}
+
+function saveClientId() {
+  saveSetting('spotifyClientId', document.getElementById('spotify-client-id').value.trim());
+}
+
+function updateSongCount() {
+  const cats = getCategories();
+  const catStr = cats.length > 0 ? ` in ${cats.length} categories` : '';
+  document.getElementById('song-count').textContent = `${songs.length} songs loaded${catStr}`;
+}
+
+function getCategories() {
+  const cats = new Set();
+  songs.forEach(s => { if (s.category) cats.add(s.category); });
+  return [...cats].sort();
+}
+
+function getActiveCategories() {
+  if (!gameSettings.activeCategories || gameSettings.activeCategories.length === 0) return getCategories();
+  return gameSettings.activeCategories;
+}
+
+async function loadExampleSongs() {
+  try {
+    const resp = await fetch('songs-example.json');
+    if (resp.ok) {
+      const data = await resp.json();
+      songs = data;
+      saveSongsToStorage();
+      renderSongList();
+      renderCategoryFilters();
+    }
+  } catch (e) {
+    // No example file, that's fine
+  }
+}
+
+// ==================== NAVIGATION ====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  const navBtn = document.getElementById('nav-' + id);
+  if (navBtn) navBtn.classList.add('active');
+
+  if (id !== 'scanner' && isScanning) stopScanner();
+  if (id === 'songs') { renderSongList(); renderCategoryFilters(); }
+  if (id === 'settings') renderSettingsCategories();
+}
+
+// ==================== QR SCANNER ====================
+function startScanner() {
+  showScreen('scanner');
+  document.getElementById('scanner-status').textContent = 'Starting camera...';
+
+  if (scanner) { scanner.clear(); }
+
+  scanner = new Html5Qrcode('scanner-container');
+  isScanning = true;
+
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    onScanSuccess,
+    () => {} // ignore scan failures
+  ).then(() => {
+    document.getElementById('scanner-status').textContent = 'Point at a QR code...';
+  }).catch(err => {
+    document.getElementById('scanner-status').textContent = 'Camera error: ' + err;
+    isScanning = false;
+  });
+}
+
+function stopScanner() {
+  if (scanner && isScanning) {
+    scanner.stop().then(() => { scanner.clear(); }).catch(() => {});
+    isScanning = false;
+  }
+}
+
+function onScanSuccess(decoded) {
+  stopScanner();
+
+  // Try to match the QR code content to a song
+  const song = matchQrToSong(decoded);
+  if (song) {
+    playSong(song);
+  } else {
+    // Unknown QR - try to interpret as Spotify URI or search
+    const spotifyUrl = interpretAsSpotifyLink(decoded);
+    if (spotifyUrl) {
+      window.open(spotifyUrl, '_blank');
+      showScreen('home');
+    } else {
+      document.getElementById('scanner-status').textContent = 'Unknown QR code: ' + decoded;
+      setTimeout(() => startScanner(), 2000);
+    }
+  }
+}
+
+function matchQrToSong(qrContent) {
+  // Match exact QR content (Category/Artist - Title format, without extension)
+  const normalized = qrContent.replace(/\\/g, '/').replace(/\.(mp3|flac|ogg|wav|m4a)$/i, '');
+
+  // Direct match on qrCode field
+  let match = songs.find(s => s.qrCode === normalized || s.qrCode === qrContent);
+  if (match) return match;
+
+  // Try matching by category/artist - title pattern
+  const parts = normalized.split('/');
+  if (parts.length === 2) {
+    const category = parts[0].trim();
+    const songPart = parts[1].trim();
+    const dashIdx = songPart.indexOf(' - ');
+    if (dashIdx > 0) {
+      const artist = songPart.substring(0, dashIdx).trim();
+      const title = songPart.substring(dashIdx + 3).trim();
+      match = songs.find(s =>
+        s.artist.toLowerCase() === artist.toLowerCase() &&
+        s.title.toLowerCase() === title.toLowerCase()
+      );
+      if (match) return match;
+    }
+  }
+
+  // Try matching by Spotify track ID
+  const spotifyMatch = qrContent.match(/spotify:track:([a-zA-Z0-9]+)/);
+  if (spotifyMatch) {
+    match = songs.find(s => s.spotifyId === spotifyMatch[1]);
+    if (match) return match;
+  }
+
+  // Try open.spotify.com URL
+  const urlMatch = qrContent.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);
+  if (urlMatch) {
+    match = songs.find(s => s.spotifyId === urlMatch[1]);
+    if (match) return match;
+  }
+
+  return null;
+}
+
+function interpretAsSpotifyLink(text) {
+  // spotify:track:ID
+  const uriMatch = text.match(/spotify:track:([a-zA-Z0-9]+)/);
+  if (uriMatch) return 'https://open.spotify.com/track/' + uriMatch[1];
+
+  // Already a spotify URL
+  if (text.includes('open.spotify.com')) return text;
+
+  return null;
+}
+
+// ==================== PLAYBACK ====================
+function playSong(song) {
+  currentSong = song;
+
+  document.getElementById('np-category').textContent = song.category || 'Unknown';
+  document.getElementById('np-artist').textContent = song.artist;
+  document.getElementById('np-title').textContent = song.title;
+  document.getElementById('np-year').textContent = song.year || '????';
+
+  // Hide info initially
+  document.getElementById('np-info').classList.remove('revealed');
+  document.getElementById('reveal-hint').style.display = '';
+  document.getElementById('btn-reveal').style.display = '';
+
+  showScreen('now-playing');
+}
+
+function openCurrentInSpotify() {
+  if (!currentSong) return;
+
+  let url;
+  if (currentSong.spotifyId) {
+    // Direct link - opens and plays in Spotify app
+    url = 'https://open.spotify.com/track/' + currentSong.spotifyId;
+  } else {
+    // Search fallback - opens Spotify search
+    const query = encodeURIComponent(currentSong.artist + ' ' + currentSong.title);
+    url = 'https://open.spotify.com/search/' + query;
+  }
+
+  window.open(url, '_blank');
+
+  if (gameSettings.autoReveal === 'yes') {
+    setTimeout(revealSong, 500);
+  }
+}
+
+function revealSong() {
+  document.getElementById('np-info').classList.add('revealed');
+  document.getElementById('reveal-hint').style.display = 'none';
+  document.getElementById('btn-reveal').style.display = 'none';
+}
+
+function playRandom() {
+  if (songs.length === 0) {
+    alert('No songs loaded! Add songs in the Songs tab or import a song database in Settings.');
+    return;
+  }
+
+  const activeCats = getActiveCategories();
+  const eligible = activeCats.length > 0
+    ? songs.filter(s => activeCats.includes(s.category))
+    : songs;
+
+  if (eligible.length === 0) {
+    alert('No songs in the selected categories.');
+    return;
+  }
+
+  const idx = Math.floor(Math.random() * eligible.length);
+  playSong(eligible[idx]);
+}
+
+// ==================== SONG LIST UI ====================
+function renderCategoryFilters() {
+  const cats = getCategories();
+  const container = document.getElementById('category-filters');
+  container.innerHTML = '';
+
+  const allChip = document.createElement('span');
+  allChip.className = 'cat-chip' + (activeCategoryFilter === 'all' ? ' active' : '');
+  allChip.textContent = `All (${songs.length})`;
+  allChip.onclick = () => { activeCategoryFilter = 'all'; renderCategoryFilters(); renderSongList(); };
+  container.appendChild(allChip);
+
+  cats.forEach(cat => {
+    const count = songs.filter(s => s.category === cat).length;
+    const chip = document.createElement('span');
+    chip.className = 'cat-chip' + (activeCategoryFilter === cat ? ' active' : '');
+    chip.textContent = `${cat} (${count})`;
+    chip.onclick = () => { activeCategoryFilter = cat; renderCategoryFilters(); renderSongList(); };
+    container.appendChild(chip);
+  });
+
+  // Update datalist for category input
+  const dl = document.getElementById('categories-datalist');
+  dl.innerHTML = '';
+  cats.forEach(c => { const o = document.createElement('option'); o.value = c; dl.appendChild(o); });
+}
+
+function renderSettingsCategories() {
+  const cats = getCategories();
+  const container = document.getElementById('settings-categories');
+  container.innerHTML = '';
+  const active = gameSettings.activeCategories || [];
+
+  cats.forEach(cat => {
+    const chip = document.createElement('span');
+    chip.className = 'cat-chip' + (active.length === 0 || active.includes(cat) ? ' active' : '');
+    chip.textContent = cat;
+    chip.onclick = () => {
+      if (active.length === 0) {
+        // First click: activate only this one
+        gameSettings.activeCategories = [cat];
+      } else if (active.includes(cat)) {
+        gameSettings.activeCategories = active.filter(c => c !== cat);
+        if (gameSettings.activeCategories.length === 0) gameSettings.activeCategories = [];
+      } else {
+        gameSettings.activeCategories.push(cat);
+      }
+      saveSetting('activeCategories', gameSettings.activeCategories);
+      renderSettingsCategories();
+    };
+    container.appendChild(chip);
+  });
+}
+
+function renderSongList() {
+  const container = document.getElementById('song-list');
+  let filtered = activeCategoryFilter === 'all' ? songs : songs.filter(s => s.category === activeCategoryFilter);
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="song-empty">
+      ${songs.length === 0 ? 'No songs yet. Add songs manually or import a database in Settings.' : 'No songs in this category.'}
+    </div>`;
+    return;
+  }
+
+  // Sort by year
+  filtered.sort((a, b) => (a.year || 0) - (b.year || 0));
+
+  container.innerHTML = filtered.map((s, i) => {
+    const realIdx = songs.indexOf(s);
+    const hasSpotify = s.spotifyId ? '<span style="color:var(--accent)">&#9679;</span>' : '<span style="color:#666">&#9675;</span>';
+    return `<div class="song-item">
+      <div class="song-item-info">
+        <div class="artist">${esc(s.artist)}</div>
+        <div class="title">${esc(s.title)}</div>
+        <div class="meta">${s.year || '?'} &middot; ${esc(s.category || '?')} &middot; ${hasSpotify} Spotify</div>
+      </div>
+      <div class="song-item-actions">
+        <button class="icon-btn" title="Play" onclick="playSong(songs[${realIdx}])">&#9654;</button>
+        <button class="icon-btn" title="Edit" onclick="showEditSongModal(${realIdx})">&#9998;</button>
+        <button class="icon-btn" title="Delete" onclick="deleteSong(${realIdx})" style="color:var(--danger)">&#10005;</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ==================== SONG CRUD ====================
+function showAddSongModal() {
+  editingIndex = -1;
+  document.getElementById('modal-title').textContent = 'Add Song';
+  document.getElementById('modal-save-btn').textContent = 'Add Song';
+  document.getElementById('song-artist').value = '';
+  document.getElementById('song-title').value = '';
+  document.getElementById('song-year').value = '';
+  document.getElementById('song-category').value = '';
+  document.getElementById('song-spotify').value = '';
+  document.getElementById('song-modal').classList.remove('hidden');
+}
+
+function showEditSongModal(idx) {
+  editingIndex = idx;
+  const s = songs[idx];
+  document.getElementById('modal-title').textContent = 'Edit Song';
+  document.getElementById('modal-save-btn').textContent = 'Save';
+  document.getElementById('song-artist').value = s.artist || '';
+  document.getElementById('song-title').value = s.title || '';
+  document.getElementById('song-year').value = s.year || '';
+  document.getElementById('song-category').value = s.category || '';
+  document.getElementById('song-spotify').value = s.spotifyId || '';
+  document.getElementById('song-modal').classList.remove('hidden');
+}
+
+function closeSongModal() {
+  document.getElementById('song-modal').classList.add('hidden');
+}
+
+function saveSong() {
+  const artist = document.getElementById('song-artist').value.trim();
+  const title = document.getElementById('song-title').value.trim();
+  const year = parseInt(document.getElementById('song-year').value) || null;
+  const category = document.getElementById('song-category').value.trim();
+  let spotifyId = document.getElementById('song-spotify').value.trim();
+
+  if (!artist || !title) { alert('Artist and Title are required.'); return; }
+
+  // Extract ID from full URL if pasted
+  const urlMatch = spotifyId.match(/track\/([a-zA-Z0-9]+)/);
+  if (urlMatch) spotifyId = urlMatch[1];
+  const uriMatch = spotifyId.match(/spotify:track:([a-zA-Z0-9]+)/);
+  if (uriMatch) spotifyId = uriMatch[1];
+
+  const qrCode = category ? `${category}/${artist} - ${title}` : `${artist} - ${title}`;
+
+  const song = { artist, title, year, category, spotifyId: spotifyId || null, qrCode };
+
+  if (editingIndex >= 0) {
+    songs[editingIndex] = song;
+  } else {
+    songs.push(song);
+  }
+
+  saveSongsToStorage();
+  closeSongModal();
+  renderSongList();
+  renderCategoryFilters();
+}
+
+function deleteSong(idx) {
+  if (confirm(`Delete "${songs[idx].artist} - ${songs[idx].title}"?`)) {
+    songs.splice(idx, 1);
+    saveSongsToStorage();
+    renderSongList();
+    renderCategoryFilters();
+  }
+}
+
+// ==================== IMPORT / EXPORT ====================
+function importSongs(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (Array.isArray(data)) {
+        if (songs.length > 0 && !confirm(`Replace ${songs.length} existing songs with ${data.length} imported songs?`)) return;
+        songs = data;
+        saveSongsToStorage();
+        renderSongList();
+        renderCategoryFilters();
+        alert(`Imported ${data.length} songs!`);
+      } else {
+        alert('Invalid format: expected a JSON array.');
+      }
+    } catch (err) {
+      alert('Error parsing JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function exportSongs() {
+  const blob = new Blob([JSON.stringify(songs, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'hitstar-songs.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importFromText() {
+  const text = document.getElementById('csv-input').value.trim();
+  if (!text) return;
+
+  const lines = text.split('\n').filter(l => l.trim());
+  let added = 0;
+
+  lines.forEach(line => {
+    line = line.trim();
+    // Format: Category\Artist - Title|Year|SpotifyID
+    // or: Category/Artist - Title|Year|SpotifyID
+    const pipes = line.split('|');
+    const pathPart = pipes[0].trim();
+    const year = pipes[1] ? parseInt(pipes[1].trim()) || null : null;
+    let spotifyId = pipes[2] ? pipes[2].trim() : null;
+
+    // Extract ID from URL if needed
+    if (spotifyId) {
+      const m = spotifyId.match(/track\/([a-zA-Z0-9]+)/);
+      if (m) spotifyId = m[1];
+    }
+
+    const normalized = pathPart.replace(/\\/g, '/').replace(/\.(mp3|flac|ogg|wav|m4a)$/i, '');
+    const slashIdx = normalized.indexOf('/');
+
+    let category = '', artistTitle = '';
+    if (slashIdx > 0) {
+      category = normalized.substring(0, slashIdx).trim();
+      artistTitle = normalized.substring(slashIdx + 1).trim();
+    } else {
+      artistTitle = normalized;
+    }
+
+    const dashIdx = artistTitle.indexOf(' - ');
+    if (dashIdx > 0) {
+      const artist = artistTitle.substring(0, dashIdx).trim();
+      const title = artistTitle.substring(dashIdx + 3).trim();
+      const qrCode = category ? `${category}/${artist} - ${title}` : `${artist} - ${title}`;
+
+      // Avoid duplicates
+      const exists = songs.some(s =>
+        s.artist.toLowerCase() === artist.toLowerCase() &&
+        s.title.toLowerCase() === title.toLowerCase()
+      );
+      if (!exists) {
+        songs.push({ artist, title, year, category, spotifyId, qrCode });
+        added++;
+      }
+    }
+  });
+
+  saveSongsToStorage();
+  renderSongList();
+  renderCategoryFilters();
+  document.getElementById('csv-input').value = '';
+  alert(`Imported ${added} new songs (${lines.length - added} skipped as duplicates).`);
+}
+
+// ==================== SPOTIFY AUTH HELPER ====================
+function requireSpotifyAuth(action) {
+  const clientId = gameSettings.spotifyClientId;
+  if (!clientId) {
+    alert('Please enter a Spotify Client ID first.\n\n1. Go to developer.spotify.com/dashboard\n2. Create an app\n3. Set redirect URI to: ' + window.location.origin + window.location.pathname + '\n4. Copy the Client ID here');
+    return false;
+  }
+  localStorage.setItem(PENDING_KEY, action);
+  const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+  const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=`;
+  window.location.href = authUrl;
+  return true;
+}
+
+// ==================== SPOTIFY PLAYLIST IMPORT ====================
+function importFromPlaylist() {
+  const urlInput = document.getElementById('playlist-url').value.trim();
+  if (!urlInput) { alert('Please paste a Spotify playlist URL or URI.'); return; }
+
+  // Extract playlist ID
+  let playlistId = null;
+  const urlMatch = urlInput.match(/playlist[/:]([a-zA-Z0-9]+)/);
+  if (urlMatch) playlistId = urlMatch[1];
+  if (!playlistId) { alert('Could not find a playlist ID in that URL. Expected format:\nhttps://open.spotify.com/playlist/XXXXX'); return; }
+
+  // Store playlist ID for after OAuth redirect
+  localStorage.setItem('hitstar_pending_playlist', playlistId);
+  const autoCategory = document.getElementById('playlist-category-auto').checked;
+  const manualCategory = document.getElementById('playlist-category-manual').value.trim();
+  localStorage.setItem('hitstar_pending_playlist_category', autoCategory ? '__auto__' : manualCategory);
+
+  requireSpotifyAuth('playlist');
+}
+
+async function importPlaylistWithToken() {
+  if (!spotifyToken) return;
+
+  const playlistId = localStorage.getItem('hitstar_pending_playlist');
+  const categoryPref = localStorage.getItem('hitstar_pending_playlist_category') || '__auto__';
+  localStorage.removeItem('hitstar_pending_playlist');
+  localStorage.removeItem('hitstar_pending_playlist_category');
+
+  if (!playlistId) { alert('No playlist ID found. Please try again.'); return; }
+
+  const statusEl = document.getElementById('playlist-status');
+  statusEl.textContent = 'Fetching playlist...';
+  showScreen('settings');
+
+  try {
+    // Get playlist info (name, etc.)
+    const plResp = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}?fields=name,tracks.total`, {
+      headers: { 'Authorization': 'Bearer ' + spotifyToken }
+    });
+    if (!plResp.ok) { statusEl.textContent = 'Error fetching playlist: ' + plResp.status; return; }
+    const plData = await plResp.json();
+    const category = categoryPref === '__auto__' ? plData.name : (categoryPref || plData.name);
+    const totalTracks = plData.tracks.total;
+    statusEl.textContent = `Importing "${plData.name}" (${totalTracks} tracks)...`;
+
+    // Fetch all tracks (paginated, 100 per page)
+    let added = 0, skipped = 0;
+    let offset = 0;
+    const limit = 100;
+
+    while (offset < totalTracks) {
+      const tracksResp = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=${limit}&fields=items(track(id,name,artists(name),album(release_date)))`,
+        { headers: { 'Authorization': 'Bearer ' + spotifyToken } }
+      );
+
+      if (tracksResp.status === 429) {
+        const retry = parseInt(tracksResp.headers.get('Retry-After') || '2');
+        await new Promise(r => setTimeout(r, retry * 1000));
+        continue;
+      }
+
+      if (!tracksResp.ok) { statusEl.textContent = 'Error fetching tracks: ' + tracksResp.status; break; }
+
+      const tracksData = await tracksResp.json();
+      for (const item of tracksData.items) {
+        const track = item.track;
+        if (!track || !track.id) { skipped++; continue; }
+
+        const artist = track.artists.map(a => a.name).join(', ');
+        const title = track.name;
+        const year = track.album && track.album.release_date
+          ? parseInt(track.album.release_date.substring(0, 4)) || null
+          : null;
+
+        // Skip duplicates
+        const exists = songs.some(s =>
+          s.artist.toLowerCase() === artist.toLowerCase() &&
+          s.title.toLowerCase() === title.toLowerCase()
+        );
+        if (exists) { skipped++; continue; }
+
+        songs.push({
+          artist,
+          title,
+          year,
+          category,
+          spotifyId: track.id,
+          qrCode: `${category}/${artist} - ${title}`
+        });
+        added++;
+      }
+
+      offset += limit;
+      statusEl.textContent = `Importing "${plData.name}"... ${added} added, ${skipped} skipped (${offset}/${totalTracks})`;
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    saveSongsToStorage();
+    renderSongList();
+    renderCategoryFilters();
+    statusEl.textContent = `Done! Imported ${added} songs from "${plData.name}" (${skipped} skipped as duplicates or empty).`;
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e.message;
+  }
+  spotifyToken = null;
+}
+
+// ==================== SPOTIFY TRACK LOOKUP ====================
+function spotifyLookupAll() {
+  const missing = songs.filter(s => !s.spotifyId);
+  if (missing.length === 0) {
+    alert('All songs already have Spotify Track IDs!');
+    return;
+  }
+  requireSpotifyAuth('lookup');
+}
+
+async function spotifyLookupWithToken() {
+  if (!spotifyToken) return;
+
+  const missing = songs.filter(s => !s.spotifyId);
+  const statusEl = document.getElementById('lookup-status');
+  statusEl.textContent = `Looking up ${missing.length} songs...`;
+  showScreen('settings');
+
+  let found = 0;
+  for (let i = 0; i < missing.length; i++) {
+    const s = missing[i];
+    statusEl.textContent = `Looking up ${i + 1}/${missing.length}: ${s.artist} - ${s.title}`;
+
+    try {
+      const query = encodeURIComponent(`track:${s.title} artist:${s.artist}`);
+      const resp = await fetch(`https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`, {
+        headers: { 'Authorization': 'Bearer ' + spotifyToken }
+      });
+
+      if (resp.status === 429) {
+        const retry = parseInt(resp.headers.get('Retry-After') || '2');
+        await new Promise(r => setTimeout(r, retry * 1000));
+        i--; continue;
+      }
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.tracks && data.tracks.items && data.tracks.items.length > 0) {
+          const idx = songs.indexOf(s);
+          if (idx >= 0) {
+            songs[idx].spotifyId = data.tracks.items[0].id;
+            found++;
+          }
+        }
+      }
+    } catch (e) {
+      // Skip errors
+    }
+
+    // Rate limiting
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  saveSongsToStorage();
+  renderSongList();
+  statusEl.textContent = `Done! Found Spotify IDs for ${found}/${missing.length} songs.`;
+  spotifyToken = null;
+}
+
+// ==================== SERVICE WORKER ====================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ==================== STARTUP ====================
+init();
+</script>
+</body>
+</html>
