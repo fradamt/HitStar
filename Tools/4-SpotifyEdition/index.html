@@ -260,6 +260,22 @@ input[type="file"] { display: none; }
 }
 .game-topbar-status.correct { color: var(--accent); }
 .game-topbar-status.wrong { color: var(--danger); }
+.game-topbar-nowplaying {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0; overflow: hidden; line-height: 1.2;
+}
+.game-topbar-nowplaying-artist {
+  font-size: 12px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.game-topbar-nowplaying-title {
+  font-size: 11px; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.game-topbar-nowplaying.obfuscated .game-topbar-nowplaying-artist,
+.game-topbar-nowplaying.obfuscated .game-topbar-nowplaying-title {
+  filter: blur(6px); user-select: none; pointer-events: none;
+}
 .game-topbar-btn {
   background: none; border: 1px solid #444; border-radius: 8px;
   color: var(--text-dim); font-size: 13px; padding: 4px 10px;
@@ -870,6 +886,10 @@ input[type="file"] { display: none; }
     </button>
     <div class="sdk-progress-wrap" onclick="seekPlayback(event, this)">
       <div class="sdk-progress-bar" id="game-progress-bar"></div>
+    </div>
+    <div class="game-topbar-nowplaying obfuscated" id="game-nowplaying">
+      <div class="game-topbar-nowplaying-artist" id="game-nowplaying-artist"></div>
+      <div class="game-topbar-nowplaying-title" id="game-nowplaying-title"></div>
     </div>
     <span class="game-topbar-status" id="game-status-text">Listen &amp; guess!</span>
     <button class="game-topbar-btn" id="game-discard-btn" onclick="showDiscardModal()">&#128465; 0</button>
@@ -2381,6 +2401,9 @@ async function gamePlayNext() {
   renderGameBoard();
 
   // Play via SDK
+  activePlayingSong = song;
+  popoutPlayingSong = null;
+  updateNowPlayingBar(song, true);
   if (sdkReady && sdkDeviceId) {
     resetProgressBars();
     clearPlayerError();
@@ -2549,6 +2572,59 @@ function createGameCard(cardData, playerIdx) {
 
 // Card pop-out overlay with play/pause button
 var popoutPlayingSong = null; // track which song the popout started
+var activePlayingSong = null; // track what's actually playing right now
+
+function updateNowPlayingBar(song, isGameSong) {
+  var container = document.getElementById('game-nowplaying');
+  var artistEl = document.getElementById('game-nowplaying-artist');
+  var titleEl = document.getElementById('game-nowplaying-title');
+  if (!container || !artistEl || !titleEl) return;
+
+  if (!song) {
+    artistEl.textContent = '';
+    titleEl.textContent = '';
+    container.className = 'game-topbar-nowplaying obfuscated';
+    removeBackToCurrentBtn();
+    return;
+  }
+
+  artistEl.textContent = song.artist || '';
+  titleEl.textContent = song.title || '';
+  container.className = 'game-topbar-nowplaying' + (isGameSong ? ' obfuscated' : '');
+
+  // Show/hide "back to current song" button
+  if (!isGameSong && gameState.active && gameState.currentSong) {
+    showBackToCurrentBtn();
+  } else {
+    removeBackToCurrentBtn();
+  }
+}
+
+function showBackToCurrentBtn() {
+  if (document.getElementById('game-back-current-btn')) return;
+  var btn = document.createElement('button');
+  btn.id = 'game-back-current-btn';
+  btn.className = 'game-topbar-btn';
+  btn.style.cssText = 'background:var(--accent);color:#000;border-color:var(--accent);font-weight:600;';
+  btn.textContent = '\u25C0 Back to song';
+  btn.addEventListener('click', function() {
+    popoutPlayingSong = null;
+    activePlayingSong = gameState.currentSong;
+    startSDKPlayback(gameState.currentSong);
+    updateNowPlayingBar(gameState.currentSong, true);
+  });
+  // Insert before the quit button
+  var topbar = document.querySelector('.game-topbar');
+  var quitBtn = topbar ? topbar.lastElementChild : null;
+  if (topbar && quitBtn) {
+    topbar.insertBefore(btn, quitBtn);
+  }
+}
+
+function removeBackToCurrentBtn() {
+  var btn = document.getElementById('game-back-current-btn');
+  if (btn) btn.remove();
+}
 
 function showCardPopout(song, playerIdx) {
   // Remove any existing popout
@@ -2587,13 +2663,14 @@ function showCardPopout(song, playerIdx) {
   playBtn.addEventListener('click', function(e) {
     e.stopPropagation();
     if (popoutPlayingSong === song && sdkIsPlaying) {
-      // Pause
       if (sdkPlayer) sdkPlayer.pause();
       playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
     } else {
-      // Play this song
       popoutPlayingSong = song;
+      activePlayingSong = song;
       startSDKPlayback(song);
+      var isGameSong = gameState.active && gameState.currentSong === song;
+      updateNowPlayingBar(song, isGameSong);
       playBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     }
   });
@@ -2608,7 +2685,9 @@ function showCardPopout(song, playerIdx) {
     backBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       popoutPlayingSong = null;
+      activePlayingSong = gameState.currentSong;
       startSDKPlayback(gameState.currentSong);
+      updateNowPlayingBar(gameState.currentSong, true);
       closeCardPopout();
     });
     popout.appendChild(backBtn);
@@ -2678,6 +2757,8 @@ async function placeCard(playerIdx, position) {
 
   gameState.phase = 'revealing';
   setGameStatus('Placed: ' + song.artist + ' - ' + (song.year || '????'), '');
+  // Un-blur now-playing since the song is revealed
+  updateNowPlayingBar(song, false);
 
   await sleep(200);
   checkPlacement(playerIdx, position);
