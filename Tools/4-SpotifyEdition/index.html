@@ -560,12 +560,7 @@ input[type="file"] { display: none; }
 .deck-card svg { width: 32px; height: 32px; opacity: 0.4; }
 .deck-card.deck-p0 svg { fill: var(--p0); }
 .deck-card.deck-p1 svg { fill: var(--p1); }
-@keyframes deckDeal {
-  0% { transform: scale(1); opacity: 1; }
-  60% { transform: scale(0.7) translateY(-30px); opacity: 0.5; }
-  100% { transform: scale(0.3) translateY(-60px); opacity: 0; }
-}
-.deck-card.dealing { animation: deckDeal 0.4s ease-in forwards; pointer-events: none; }
+.deck-card.dealing { opacity: 0; transition: opacity 0.2s ease-out; pointer-events: none; }
 @keyframes deckPulse {
   0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 3px 3px 0 var(--card-bg), 6px 6px 0 var(--surface), 0 0 0 0 rgba(29,185,84,0); }
   50% { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 3px 3px 0 var(--card-bg), 6px 6px 0 var(--surface), 0 0 16px 4px rgba(29,185,84,0.35); }
@@ -2318,7 +2313,7 @@ function renderGameBoard() {
 
   for (var p = 0; p < gameState.players.length; p++) {
     var player = gameState.players[p];
-    var isActive = (p === gameState.currentPlayer && (gameState.phase === 'listening' || gameState.phase === 'waiting'));
+    var isActive = (p === gameState.currentPlayer && gameState.phase !== 'done');
 
     var row = document.createElement('div');
     row.className = 'player-row player-' + p + (isActive ? ' active-turn' : '');
@@ -2385,7 +2380,11 @@ function renderGameBoard() {
   var deck = document.createElement('div');
   deck.className = 'deck-visual';
   var deckCard = document.createElement('div');
-  deckCard.className = 'deck-card deck-p' + gameState.currentPlayer;
+  // During waiting, show next player's color on deck (the card being drawn is theirs)
+  var deckPlayerIdx = gameState.phase === 'waiting'
+    ? (gameState.currentPlayer + 1) % gameState.players.length
+    : gameState.currentPlayer;
+  deckCard.className = 'deck-card deck-p' + deckPlayerIdx;
   // Music note icon (face down)
   deckCard.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>';
   // Show remaining song count
@@ -2402,6 +2401,7 @@ function renderGameBoard() {
   if (gameState.phase === 'waiting') {
     deckCard.classList.add('deck-next-turn');
     deckCard.addEventListener('click', function() {
+      gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.players.length;
       gamePlayNext();
     });
   } else {
@@ -2645,11 +2645,26 @@ async function placeCard(playerIdx, position) {
   var player = gameState.players[playerIdx];
   var cardData = { song: song };
 
-  // Insert card at position
+  // Capture the deck card position before re-render
+  var deckCardEl = document.querySelector('.deck-card');
+  var deckRect = deckCardEl ? deckCardEl.getBoundingClientRect() : null;
+
+  // Animate the deck: transition current card out, reveal next player's color underneath
+  if (deckCardEl) {
+    var nextPlayerIdx = (gameState.currentPlayer + 1) % gameState.players.length;
+    deckCardEl.classList.add('dealing');
+    // After a brief delay, swap the deck card color to next player
+    await sleep(200);
+    deckCardEl.classList.remove('deck-p' + gameState.currentPlayer);
+    deckCardEl.classList.add('deck-p' + nextPlayerIdx);
+    deckCardEl.classList.remove('dealing');
+    deckCardEl.style.opacity = '1';
+    deckCardEl.style.transform = '';
+  }
+
+  // Insert card into data model and re-render
   player.cards.splice(position, 0, cardData);
   renderGameBoard();
-
-  // Wait for render, then do flip animation
   await sleep(50);
 
   // Find the newly placed card in the DOM
@@ -2659,8 +2674,50 @@ async function placeCard(playerIdx, position) {
   var cardEls = activeRow.querySelectorAll('.game-card');
   var placedCard = cardEls[position];
 
-  if (placedCard) {
-    // Start with the card content hidden, then reveal with flip
+  if (placedCard && deckRect) {
+    var targetRect = placedCard.getBoundingClientRect();
+
+    // Create a flying card clone at the deck's position
+    var flyCard = document.createElement('div');
+    flyCard.className = 'game-card card-p' + playerIdx;
+    flyCard.style.cssText = 'position:fixed;z-index:300;width:' + deckRect.width + 'px;height:' + deckRect.height + 'px;'
+      + 'left:' + deckRect.left + 'px;top:' + deckRect.top + 'px;'
+      + 'transition:left 0.45s ease-out,top 0.45s ease-out,width 0.45s ease-out,height 0.45s ease-out,transform 0.3s ease-out 0.25s;'
+      + 'pointer-events:none;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;';
+    // Face-down: show music note
+    flyCard.innerHTML = '<svg viewBox="0 0 24 24" style="width:32px;height:32px;opacity:0.4;fill:var(--p' + playerIdx + ')"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>';
+    document.body.appendChild(flyCard);
+
+    // Hide the actual card during flight
+    placedCard.style.visibility = 'hidden';
+
+    // Trigger flight
+    await sleep(20);
+    flyCard.style.left = targetRect.left + 'px';
+    flyCard.style.top = targetRect.top + 'px';
+    flyCard.style.width = targetRect.width + 'px';
+    flyCard.style.height = targetRect.height + 'px';
+
+    // Wait for flight to arrive
+    await sleep(460);
+
+    // Flip: rotate to 90deg (hide face-down)
+    flyCard.style.transition = 'transform 0.15s ease-in';
+    flyCard.style.transform = 'rotateY(90deg)';
+    await sleep(160);
+
+    // Swap to revealed content and flip back
+    flyCard.remove();
+    placedCard.style.visibility = '';
+    placedCard.style.transform = 'rotateY(90deg)';
+    placedCard.style.transition = 'transform 0.2s ease-out';
+    await sleep(20);
+    placedCard.style.transform = 'rotateY(0deg)';
+    await sleep(220);
+    placedCard.style.transform = '';
+    placedCard.style.transition = '';
+  } else if (placedCard) {
+    // Fallback: simple flip if no deck rect
     placedCard.style.transform = 'rotateY(90deg)';
     placedCard.style.transition = 'transform 0.3s ease-out';
     await sleep(50);
@@ -2731,15 +2788,8 @@ async function checkPlacement(playerIdx, position) {
     await sleep(400);
   }
 
-  // Animate deck card dealing out, then switch to next player
-  var deckCardEl = document.querySelector('.deck-card');
-  if (deckCardEl) {
-    deckCardEl.classList.add('dealing');
-    await sleep(400);
-  }
-
+  // Stay on current player's turn until deck is clicked
   gameState.phase = 'waiting';
-  gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.players.length;
   renderGameBoard();
   setGameStatus('', '');
 }
