@@ -524,6 +524,37 @@ input[type="file"] { display: none; }
   font-size: 12px; color: var(--text-dim);
 }
 
+/* Deck + discard side by side */
+.game-piles {
+  display: flex; justify-content: center; gap: 28px;
+  margin-top: 16px; align-self: center;
+}
+.deck-visual {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer;
+}
+.deck-card {
+  min-width: 90px; max-width: 100px; height: 110px;
+  background: var(--surface2); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid transparent; position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3), 3px 3px 0 var(--card-bg), 6px 6px 0 var(--surface);
+  transition: transform 0.15s;
+}
+.deck-card:hover { transform: scale(1.05); }
+.deck-card.deck-p0 { border-color: rgba(231,76,60,0.5); background: linear-gradient(135deg, rgba(231,76,60,0.15), var(--surface2)); }
+.deck-card.deck-p1 { border-color: rgba(52,152,219,0.5); background: linear-gradient(135deg, rgba(52,152,219,0.15), var(--surface2)); }
+.deck-card svg { width: 32px; height: 32px; opacity: 0.4; }
+.deck-card.deck-p0 svg { fill: var(--p0); }
+.deck-card.deck-p1 svg { fill: var(--p1); }
+.deck-label { font-size: 12px; color: var(--text-dim); }
+.deck-count {
+  position: absolute; top: -8px; right: -8px;
+  background: var(--accent); color: #000; font-size: 11px; font-weight: 700;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+
 /* Discard modal */
 .discard-modal-list {
   display: flex; flex-direction: column; gap: 8px;
@@ -2490,18 +2521,46 @@ function renderGameBoard() {
   // Update discard counter in top bar
   document.getElementById('game-discard-btn').textContent = '\uD83D\uDDD1 ' + gameState.discardPile.length;
 
-  // Render visual discard pile
-  var existingPile = document.getElementById('game-discard-pile');
-  if (existingPile) existingPile.remove();
+  // Piles container (deck + discard side by side)
+  var pilesContainer = document.createElement('div');
+  pilesContainer.className = 'game-piles';
 
+  // --- Card Deck ---
+  var deck = document.createElement('div');
+  deck.className = 'deck-visual';
+  var deckCard = document.createElement('div');
+  deckCard.className = 'deck-card deck-p' + gameState.currentPlayer;
+  // Music note icon (face down)
+  deckCard.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>';
+  // Show remaining song count
+  var songPool = getGameSongPool();
+  var remaining = songPool.length;
+  if (remaining > 0) {
+    var deckCount = document.createElement('div');
+    deckCount.className = 'deck-count';
+    deckCount.textContent = remaining;
+    deckCard.appendChild(deckCount);
+  }
+  // Click to play/resume the current game song
+  deckCard.addEventListener('click', function() {
+    if (gameState.currentSong) {
+      popoutPlayingSong = null;
+      activePlayingSong = gameState.currentSong;
+      startSDKPlayback(gameState.currentSong);
+      updateNowPlayingBar(gameState.currentSong, true);
+    }
+  });
+  deck.appendChild(deckCard);
+  var deckLabel = document.createElement('div');
+  deckLabel.className = 'deck-label';
+  deckLabel.textContent = 'Deck';
+  deck.appendChild(deckLabel);
+  pilesContainer.appendChild(deck);
+
+  // --- Discard Pile ---
   var pile = document.createElement('div');
-  pile.id = 'game-discard-pile';
   pile.className = 'discard-pile-visual';
   pile.addEventListener('click', function() { showDiscardModal(); });
-
-  var pileLabel = document.createElement('div');
-  pileLabel.className = 'discard-pile-label';
-  pileLabel.textContent = 'Discard';
 
   if (gameState.discardPile.length === 0) {
     pile.classList.add('discard-pile-empty');
@@ -2529,7 +2588,6 @@ function renderGameBoard() {
     tcTitle.textContent = last.song.title;
     topCard.appendChild(tcTitle);
 
-    // Stack effect: show count
     if (gameState.discardPile.length > 1) {
       var countBadge = document.createElement('div');
       countBadge.className = 'discard-pile-count';
@@ -2540,8 +2598,13 @@ function renderGameBoard() {
     pile.appendChild(topCard);
   }
 
+  var pileLabel = document.createElement('div');
+  pileLabel.className = 'discard-pile-label';
+  pileLabel.textContent = 'Discard';
   pile.appendChild(pileLabel);
-  body.appendChild(pile);
+  pilesContainer.appendChild(pile);
+
+  body.appendChild(pilesContainer);
 }
 
 function createGameCard(cardData, playerIdx) {
