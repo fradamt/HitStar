@@ -780,40 +780,27 @@ function init() {
     }
   }
 
-  // Check for Spotify OAuth callback
-  var hash = window.location.hash;
-  if (hash.includes('access_token')) {
-    var params = new URLSearchParams(hash.substring(1));
-    var token = params.get('access_token');
-    var expiresIn = parseInt(params.get('expires_in') || '3600');
-    window.location.hash = '';
-    history.replaceState(null, '', window.location.pathname + window.location.search);
+  // Check for Spotify OAuth PKCE callback (?code=...)
+  var urlParams = new URLSearchParams(window.location.search);
+  var authCode = urlParams.get('code');
+  if (authCode) {
+    history.replaceState(null, '', window.location.pathname);
     pendingAction = localStorage.getItem(PENDING_KEY) || 'sdk';
     localStorage.removeItem(PENDING_KEY);
+    handleAuthCode(authCode, pendingAction);
+  }
 
-    // Always store token for SDK use
-    sdkToken = token;
-    sdkTokenExpiry = Date.now() + expiresIn * 1000;
-    localStorage.setItem(SDK_TOKEN_KEY, sdkToken);
-    localStorage.setItem(SDK_TOKEN_EXPIRY_KEY, String(sdkTokenExpiry));
-
-    // Initialize SDK player if not already connected
-    if (window.Spotify && window.Spotify.Player && !sdkReady) {
-      initializeSDKPlayer(sdkToken);
-    }
-
-    if (pendingAction === 'playlist' || pendingAction === 'playlist-source') {
-      spotifyToken = token;
-      if (pendingAction === 'playlist-source') {
-        importPlaylistAsSource();
-      } else {
-        importPlaylistWithToken();
-      }
-    } else if (pendingAction === 'lookup') {
-      spotifyToken = token;
-      spotifyLookupWithToken();
-    }
-    // 'sdk' and 'playback' just need the SDK init above
+  // Also handle legacy implicit grant callback (#access_token=...) for backwards compat
+  var hash = window.location.hash;
+  if (hash.includes('access_token')) {
+    var hparams = new URLSearchParams(hash.substring(1));
+    var htoken = hparams.get('access_token');
+    var hexpiresIn = parseInt(hparams.get('expires_in') || '3600');
+    window.location.hash = '';
+    history.replaceState(null, '', window.location.pathname);
+    pendingAction = localStorage.getItem(PENDING_KEY) || 'sdk';
+    localStorage.removeItem(PENDING_KEY);
+    applyToken(htoken, hexpiresIn, pendingAction);
   }
 
   // Toggle manual category input visibility
@@ -837,6 +824,41 @@ function init() {
 
   updateHomeConnectUI();
   updateSessionPlaylistIndicator();
+}
+
+// Exchange PKCE auth code for token, then apply it
+async function handleAuthCode(code, action) {
+  showToast('Connecting to Spotify...', 'success', 10000);
+  var data = await exchangeCodeForToken(code);
+  if (!data || !data.access_token) {
+    showToast('Failed to connect to Spotify. Please try again.', 'error');
+    return;
+  }
+  applyToken(data.access_token, data.expires_in || 3600, action);
+}
+
+// Store token and initialize SDK + trigger pending action
+function applyToken(token, expiresIn, action) {
+  sdkToken = token;
+  sdkTokenExpiry = Date.now() + expiresIn * 1000;
+  localStorage.setItem(SDK_TOKEN_KEY, sdkToken);
+  localStorage.setItem(SDK_TOKEN_EXPIRY_KEY, String(sdkTokenExpiry));
+
+  if (window.Spotify && window.Spotify.Player && !sdkReady) {
+    initializeSDKPlayer(sdkToken);
+  }
+
+  if (action === 'playlist' || action === 'playlist-source') {
+    spotifyToken = token;
+    if (action === 'playlist-source') {
+      importPlaylistAsSource();
+    } else {
+      importPlaylistWithToken();
+    }
+  } else if (action === 'lookup') {
+    spotifyToken = token;
+    spotifyLookupWithToken();
+  }
 }
 
 // ==================== SONGS DATA ====================
@@ -1605,19 +1627,61 @@ function importFromText() {
   alert('Imported ' + added + ' new songs (' + (lines.length - added) + ' skipped as duplicates).');
 }
 
-// ==================== SPOTIFY AUTH HELPER ====================
-function requireSpotifyAuth(action) {
+// ==================== SPOTIFY AUTH (PKCE) ====================
+var PKCE_VERIFIER_KEY = 'hitstar_pkce_verifier';
+
+function generateCodeVerifier() {
+  var arr = new Uint8Array(64);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode.apply(null, arr))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function generateCodeChallenge(verifier) {
+  var encoder = new TextEncoder();
+  var data = encoder.encode(verifier);
+  var digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function requireSpotifyAuth(action) {
   var clientId = gameSettings.spotifyClientId;
   if (!clientId) {
     alert('Please enter a Spotify Client ID first.\n\n1. Go to developer.spotify.com/dashboard\n2. Create an app\n3. Set redirect URI to: ' + window.location.origin + window.location.pathname + '\n4. Copy the Client ID here');
     return false;
   }
   localStorage.setItem(PENDING_KEY, action);
+  var verifier = generateCodeVerifier();
+  localStorage.setItem(PKCE_VERIFIER_KEY, verifier);
+  var challenge = await generateCodeChallenge(verifier);
   var redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
   var scopes = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative';
-  var authUrl = 'https://accounts.spotify.com/authorize?client_id=' + clientId + '&response_type=token&redirect_uri=' + redirectUri + '&scope=' + encodeURIComponent(scopes);
+  var authUrl = 'https://accounts.spotify.com/authorize?client_id=' + clientId
+    + '&response_type=code&redirect_uri=' + redirectUri
+    + '&scope=' + encodeURIComponent(scopes)
+    + '&code_challenge_method=S256&code_challenge=' + challenge;
   window.location.href = authUrl;
   return true;
+}
+
+async function exchangeCodeForToken(code) {
+  var clientId = gameSettings.spotifyClientId;
+  var verifier = localStorage.getItem(PKCE_VERIFIER_KEY);
+  localStorage.removeItem(PKCE_VERIFIER_KEY);
+  if (!verifier || !clientId) return null;
+
+  var redirectUri = window.location.origin + window.location.pathname;
+  var resp = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=authorization_code&code=' + encodeURIComponent(code)
+      + '&redirect_uri=' + encodeURIComponent(redirectUri)
+      + '&client_id=' + encodeURIComponent(clientId)
+      + '&code_verifier=' + encodeURIComponent(verifier)
+  });
+  if (!resp.ok) return null;
+  return await resp.json();
 }
 
 // ==================== SPOTIFY PLAYLIST IMPORT ====================
