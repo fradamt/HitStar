@@ -2647,10 +2647,30 @@ async function checkPlacement(playerIdx, position) {
     await sleep(400);
   }
 
-  // Switch turn
+  // Wait for player to explicitly advance to next turn
+  gameState.phase = 'waiting';
   gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.players.length;
-  await sleep(300);
-  gamePlayNext();
+  var nextPlayer = gameState.players[gameState.currentPlayer];
+  setGameStatus(nextPlayer.name + '\'s turn next', '');
+  showNextTurnButton(nextPlayer.name);
+}
+
+function showNextTurnButton(nextPlayerName) {
+  var existing = document.getElementById('game-next-turn-btn');
+  if (existing) existing.remove();
+
+  var btn = document.createElement('button');
+  btn.id = 'game-next-turn-btn';
+  btn.className = 'btn btn-block';
+  btn.style.cssText = 'margin-top:12px;font-size:18px;padding:16px;max-width:400px;align-self:center;';
+  btn.textContent = 'Next Turn \u2192 ' + nextPlayerName;
+  btn.addEventListener('click', function() {
+    btn.remove();
+    gamePlayNext();
+  });
+
+  var body = document.getElementById('game-board-body');
+  if (body) body.appendChild(btn);
 }
 
 function showVictory(playerIdx) {
