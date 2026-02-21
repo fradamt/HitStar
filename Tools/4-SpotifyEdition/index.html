@@ -328,6 +328,41 @@ input[type="file"] { display: none; }
 .game-card.card-p0:hover { border-color: rgba(231,76,60,0.6); }
 .game-card.card-p1:hover { border-color: rgba(52,152,219,0.6); }
 .game-card:active { transform: scale(0.97); }
+
+/* Card pop-out overlay */
+.card-popout-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 250; padding: 20px; animation: fadeIn 0.15s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.card-popout {
+  background: var(--card-bg); border-radius: 20px; padding: 28px 24px;
+  min-width: 240px; max-width: 320px; text-align: center;
+  border: 3px solid transparent;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  animation: popIn 0.2s ease-out;
+}
+@keyframes popIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.card-popout.popout-p0 { border-color: rgba(231,76,60,0.5); }
+.card-popout.popout-p1 { border-color: rgba(52,152,219,0.5); }
+.card-popout-year {
+  font-size: 52px; font-weight: 800; line-height: 1.1; margin-bottom: 8px;
+}
+.card-popout.popout-p0 .card-popout-year { color: var(--p0); }
+.card-popout.popout-p1 .card-popout-year { color: var(--p1); }
+.card-popout-artist { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.card-popout-title { font-size: 15px; color: var(--text-dim); margin-bottom: 20px; }
+.card-popout-play {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #fff; border: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.card-popout-play:hover { transform: scale(1.08); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.card-popout-play:active { transform: scale(0.95); }
+.card-popout-play svg { width: 24px; height: 24px; fill: #000; }
 .game-card-year {
   font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1;
 }
@@ -2423,15 +2458,95 @@ function createGameCard(cardData, playerIdx) {
   title.textContent = cardData.song.title;
   card.appendChild(title);
 
-  // Click to replay song
   card.addEventListener('click', function() {
-    card.classList.remove('replay-pulse');
-    void card.offsetWidth; // reflow
-    card.classList.add('replay-pulse');
-    startSDKPlayback(cardData.song);
+    showCardPopout(cardData.song, playerIdx);
   });
 
   return card;
+}
+
+// Card pop-out overlay with play/pause button
+var popoutPlayingSong = null; // track which song the popout started
+
+function showCardPopout(song, playerIdx) {
+  // Remove any existing popout
+  closeCardPopout();
+
+  var overlay = document.createElement('div');
+  overlay.className = 'card-popout-overlay';
+  overlay.id = 'card-popout-overlay';
+
+  var popout = document.createElement('div');
+  popout.className = 'card-popout popout-p' + playerIdx;
+
+  var yearEl = document.createElement('div');
+  yearEl.className = 'card-popout-year';
+  yearEl.textContent = song.year || '????';
+  popout.appendChild(yearEl);
+
+  var artistEl = document.createElement('div');
+  artistEl.className = 'card-popout-artist';
+  artistEl.textContent = song.artist;
+  popout.appendChild(artistEl);
+
+  var titleEl = document.createElement('div');
+  titleEl.className = 'card-popout-title';
+  titleEl.textContent = song.title;
+  popout.appendChild(titleEl);
+
+  // Play/pause button (white circle, black icon — Spotify style)
+  var playBtn = document.createElement('button');
+  playBtn.className = 'card-popout-play';
+  playBtn.id = 'popout-play-btn';
+  var isThisSongPlaying = popoutPlayingSong === song && sdkIsPlaying;
+  playBtn.innerHTML = isThisSongPlaying
+    ? '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+  playBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (popoutPlayingSong === song && sdkIsPlaying) {
+      // Pause
+      if (sdkPlayer) sdkPlayer.pause();
+      playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+    } else {
+      // Play this song
+      popoutPlayingSong = song;
+      startSDKPlayback(song);
+      playBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    }
+  });
+  popout.appendChild(playBtn);
+
+  // "Back to current song" button — only show during an active game with a current song
+  if (gameState.active && gameState.currentSong && gameState.currentSong !== song) {
+    var backBtn = document.createElement('button');
+    backBtn.className = 'btn btn-sm btn-outline';
+    backBtn.style.cssText = 'margin-top:14px;display:block;width:100%;';
+    backBtn.textContent = 'Back to current song';
+    backBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      popoutPlayingSong = null;
+      startSDKPlayback(gameState.currentSong);
+      closeCardPopout();
+    });
+    popout.appendChild(backBtn);
+  }
+
+  overlay.appendChild(popout);
+
+  // Click outside to close
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) {
+      closeCardPopout();
+    }
+  });
+
+  document.body.appendChild(overlay);
+}
+
+function closeCardPopout() {
+  var existing = document.getElementById('card-popout-overlay');
+  if (existing) existing.remove();
 }
 
 function createPlacementSlot(playerIdx, position, isEmpty) {
@@ -2599,12 +2714,12 @@ function showDiscardModal() {
 
       item.appendChild(info);
 
-      // Click to replay
-      (function(song) {
+      // Click to show popout with play button
+      (function(song, pIdx) {
         item.addEventListener('click', function() {
-          startSDKPlayback(song);
+          showCardPopout(song, pIdx);
         });
-      })(d.song);
+      })(d.song, d.playerIndex);
 
       list.appendChild(item);
     }
