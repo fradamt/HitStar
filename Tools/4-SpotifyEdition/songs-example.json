@@ -1,0 +1,162 @@
+[
+  {
+    "artist": "Queen",
+    "title": "Bohemian Rhapsody",
+    "year": 1975,
+    "category": "Rock",
+    "spotifyId": "7tFiyTwD0nx5a1eklYtX2J",
+    "qrCode": "Rock/Queen - Bohemian Rhapsody"
+  },
+  {
+    "artist": "a-ha",
+    "title": "Take On Me",
+    "year": 1985,
+    "category": "Basis",
+    "spotifyId": "2WfaOiMkCvy7F5fcp2zZ8L",
+    "qrCode": "Basis/a-ha - Take On Me"
+  },
+  {
+    "artist": "Nirvana",
+    "title": "Smells Like Teen Spirit",
+    "year": 1991,
+    "category": "Rock",
+    "spotifyId": "5ghIJDpPoe3CfHMGu71E6T",
+    "qrCode": "Rock/Nirvana - Smells Like Teen Spirit"
+  },
+  {
+    "artist": "Backstreet Boys",
+    "title": "I Want It That Way",
+    "year": 1999,
+    "category": "Basis",
+    "spotifyId": "47BBI51FKFwOMlIiX6m8ya",
+    "qrCode": "Basis/Backstreet Boys - I Want It That Way"
+  },
+  {
+    "artist": "Outkast",
+    "title": "Hey Ya!",
+    "year": 2003,
+    "category": "Basis",
+    "spotifyId": "2PpruBYCo4H7WOBJ7Q2EwM",
+    "qrCode": "Basis/Outkast - Hey Ya!"
+  },
+  {
+    "artist": "Pharrell Williams",
+    "title": "Happy",
+    "year": 2013,
+    "category": "Summer",
+    "spotifyId": "60nZcImufyMA1MKQY3dcCH",
+    "qrCode": "Summer/Pharrell Williams - Happy"
+  },
+  {
+    "artist": "Toto",
+    "title": "Africa",
+    "year": 1982,
+    "category": "Basis",
+    "spotifyId": "2374M0fQpWi3dLnB54qaLX",
+    "qrCode": "Basis/Toto - Africa"
+  },
+  {
+    "artist": "Michael Jackson",
+    "title": "Billie Jean",
+    "year": 1982,
+    "category": "Basis",
+    "spotifyId": "5ChkMS8OtdzJeqyybCc9R5",
+    "qrCode": "Basis/Michael Jackson - Billie Jean"
+  },
+  {
+    "artist": "Eagles",
+    "title": "Hotel California",
+    "year": 1977,
+    "category": "Rock",
+    "spotifyId": "40riOy7x9W7GXjyGp4pjAv",
+    "qrCode": "Rock/Eagles - Hotel California"
+  },
+  {
+    "artist": "Depeche Mode",
+    "title": "Enjoy the Silence",
+    "year": 1990,
+    "category": "Electro",
+    "spotifyId": "1pMBEPWqFAUPVYFkSXWlyU",
+    "qrCode": "Electro/Depeche Mode - Enjoy the Silence"
+  },
+  {
+    "artist": "SNAP!",
+    "title": "The Power",
+    "year": 1990,
+    "category": "Summer",
+    "spotifyId": "5T8EDUDqKcs6OSOwEsfqG7",
+    "qrCode": "Summer/SNAP! - The Power"
+  },
+  {
+    "artist": "Alicia Keys",
+    "title": "No One",
+    "year": 2007,
+    "category": "Basis",
+    "spotifyId": "3VUOBjERkmMECMSKmsSAyy",
+    "qrCode": "Basis/Alicia Keys - No One"
+  },
+  {
+    "artist": "Daft Punk",
+    "title": "Get Lucky",
+    "year": 2013,
+    "category": "Electro",
+    "spotifyId": "2Foc5Q5nqNiosCNqttzHof",
+    "qrCode": "Electro/Daft Punk - Get Lucky"
+  },
+  {
+    "artist": "Bon Jovi",
+    "title": "Livin' on a Prayer",
+    "year": 1986,
+    "category": "Rock",
+    "spotifyId": "37ZJ0p5Jm13JPevGcx4SkF",
+    "qrCode": "Rock/Bon Jovi - Livin' on a Prayer"
+  },
+  {
+    "artist": "Luis Fonsi",
+    "title": "Despacito",
+    "year": 2017,
+    "category": "Summer",
+    "spotifyId": "6habFhsOp2NvshLv26DqMb",
+    "qrCode": "Summer/Luis Fonsi - Despacito"
+  },
+  {
+    "artist": "Guns N' Roses",
+    "title": "Sweet Child O' Mine",
+    "year": 1987,
+    "category": "Rock",
+    "spotifyId": "7o2CTH4ctstm8TNelqjb51",
+    "qrCode": "Rock/Guns N' Roses - Sweet Child O' Mine"
+  },
+  {
+    "artist": "The Weeknd",
+    "title": "Blinding Lights",
+    "year": 2019,
+    "category": "Basis",
+    "spotifyId": "0VjIjW4GlUZAMYd2vXMi3b",
+    "qrCode": "Basis/The Weeknd - Blinding Lights"
+  },
+  {
+    "artist": "AC/DC",
+    "title": "Highway to Hell",
+    "year": 1979,
+    "category": "Rock",
+    "spotifyId": "2zYzyRzz6pRmhPzyfMEC8s",
+    "qrCode": "Rock/AC-DC - Highway to Hell"
+  },
+  {
+    "artist": "Whitney Houston",
+    "title": "I Wanna Dance with Somebody",
+    "year": 1987,
+    "category": "Summer",
+    "spotifyId": "2tUBqZG2AbRi7Q0BIrVrEj",
+    "qrCode": "Summer/Whitney Houston - I Wanna Dance with Somebody"
+  },
+  {
+    "artist": "Nena",
+    "title": "99 Luftballons",
+    "year": 1983,
+    "category": "Basis",
+    "spotifyId": "2IJBZNUoAvSNpMkWNOD7eB",
+    "qrCode": "Basis/Nena - 99 Luftballons"
+  }
+]
