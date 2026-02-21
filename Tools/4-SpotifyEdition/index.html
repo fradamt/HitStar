@@ -235,6 +235,282 @@ input[type="file"] { display: none; }
 .toast.toast-error { border-color: var(--danger); color: var(--danger); }
 .toast.toast-success { border-color: var(--accent); color: var(--accent); }
 .toast.toast-hidden { opacity: 0; pointer-events: none; }
+
+/* ==================== GAME BOARD ==================== */
+#game-board {
+  padding: 0; min-height: 100vh; display: none;
+  flex-direction: column; overflow: hidden;
+}
+#game-board.active { display: flex; }
+
+/* Top bar */
+.game-topbar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border-bottom: 1px solid #333;
+  padding: 8px 14px; height: 48px; flex-shrink: 0; z-index: 10;
+}
+.game-topbar .sdk-play-btn {
+  width: 32px; height: 32px; min-width: 32px;
+}
+.game-topbar .sdk-play-btn svg { width: 16px; height: 16px; }
+.game-topbar .sdk-progress-wrap { flex: 1; height: 4px; }
+.game-topbar-status {
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.game-topbar-status.correct { color: var(--accent); }
+.game-topbar-status.wrong { color: var(--danger); }
+.game-topbar-btn {
+  background: none; border: 1px solid #444; border-radius: 8px;
+  color: var(--text-dim); font-size: 13px; padding: 4px 10px;
+  cursor: pointer; white-space: nowrap;
+}
+.game-topbar-btn:hover { color: var(--text); border-color: #666; }
+
+/* Game body (player rows) */
+.game-body {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* Player colors */
+:root {
+  --p0: #e74c3c; --p0-dim: rgba(231,76,60,0.15); --p0-glow: rgba(231,76,60,0.35);
+  --p1: #3498db; --p1-dim: rgba(52,152,219,0.15); --p1-glow: rgba(52,152,219,0.35);
+}
+
+/* Player row */
+.player-row {
+  background: var(--surface); border-radius: 12px; padding: 12px 14px;
+  border: 2px solid transparent; transition: border-color 0.3s, box-shadow 0.3s;
+}
+.player-row.player-0 { background: linear-gradient(135deg, var(--p0-dim), var(--surface) 60%); border-color: rgba(231,76,60,0.25); }
+.player-row.player-1 { background: linear-gradient(135deg, var(--p1-dim), var(--surface) 60%); border-color: rgba(52,152,219,0.25); }
+.player-row.player-0.active-turn { border-color: var(--p0); box-shadow: 0 0 16px var(--p0-glow); }
+.player-row.player-1.active-turn { border-color: var(--p1); box-shadow: 0 0 16px var(--p1-glow); }
+.player-row-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.player-row-name {
+  font-size: 15px; font-weight: 700;
+}
+.player-row.player-0 .player-row-name { color: #f1948a; }
+.player-row.player-1 .player-row-name { color: #85c1e9; }
+.player-row-name .star { margin-left: 4px; }
+.player-row.player-0 .player-row-name .star { color: var(--p0); }
+.player-row.player-1 .player-row-name .star { color: var(--p1); }
+.player-row-score {
+  font-size: 13px; color: var(--text-dim);
+}
+
+/* Card row (horizontal scroll) */
+.card-row {
+  display: flex; align-items: center; gap: 6px;
+  overflow-x: auto; padding: 4px 0 8px;
+  scrollbar-width: thin; scrollbar-color: #444 transparent;
+}
+.card-row::-webkit-scrollbar { height: 4px; }
+.card-row::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+/* Game card */
+.game-card {
+  min-width: 90px; max-width: 100px; height: 110px;
+  background: var(--card-bg); border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 8px 6px; cursor: pointer;
+  border: 2px solid transparent; transition: border-color 0.2s, box-shadow 0.2s;
+  flex-shrink: 0; position: relative; user-select: none;
+  perspective: 600px;
+}
+.game-card.card-p0 { border-color: rgba(231,76,60,0.3); }
+.game-card.card-p1 { border-color: rgba(52,152,219,0.3); }
+.game-card.card-p0:hover { border-color: rgba(231,76,60,0.6); }
+.game-card.card-p1:hover { border-color: rgba(52,152,219,0.6); }
+.game-card:active { transform: scale(0.97); }
+.game-card-year {
+  font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1;
+}
+.game-card.card-p0 .game-card-year { color: var(--p0); }
+.game-card.card-p1 .game-card-year { color: var(--p1); }
+.game-card-artist {
+  font-size: 11px; font-weight: 600; color: var(--text);
+  text-align: center; margin-top: 4px;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.game-card-title {
+  font-size: 10px; color: var(--text-dim);
+  text-align: center; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Card flip animation */
+.game-card-inner {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+  position: relative;
+}
+.game-card.flipping .game-card-inner {
+  transform: rotateY(180deg);
+}
+.game-card-face {
+  backface-visibility: hidden;
+  position: absolute; width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
+}
+.game-card-back {
+  transform: rotateY(180deg);
+}
+.game-card-front {
+  background: var(--surface2); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.game-card-front svg { width: 28px; height: 28px; fill: var(--text-dim); }
+
+/* Placement slot */
+.placement-slot {
+  min-width: 44px; height: 110px;
+  border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  font-size: 22px; color: rgba(255,255,255,0.4);
+  transition: background 0.2s, border-color 0.2s;
+  animation: slotPulse 2s ease-in-out infinite;
+}
+.placement-slot.slot-p0 { border-color: rgba(231,76,60,0.4); color: rgba(231,76,60,0.6); }
+.placement-slot.slot-p1 { border-color: rgba(52,152,219,0.4); color: rgba(52,152,219,0.6); }
+.placement-slot.slot-p0:hover { background: rgba(231,76,60,0.1); border-color: var(--p0); color: var(--p0); }
+.placement-slot.slot-p1:hover { background: rgba(52,152,219,0.1); border-color: var(--p1); color: var(--p1); }
+.placement-slot.empty-row {
+  min-width: 120px; font-size: 14px; font-weight: 600;
+}
+@keyframes slotPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Card animations */
+@keyframes glowP0 {
+  0% { box-shadow: 0 0 0 rgba(231,76,60,0); }
+  50% { box-shadow: 0 0 20px rgba(231,76,60,0.6); }
+  100% { box-shadow: 0 0 0 rgba(231,76,60,0); }
+}
+@keyframes glowP1 {
+  0% { box-shadow: 0 0 0 rgba(52,152,219,0); }
+  50% { box-shadow: 0 0 20px rgba(52,152,219,0.6); }
+  100% { box-shadow: 0 0 0 rgba(52,152,219,0); }
+}
+@keyframes greenGlow {
+  0% { box-shadow: 0 0 0 rgba(29, 185, 84, 0); }
+  50% { box-shadow: 0 0 20px rgba(29, 185, 84, 0.6); }
+  100% { box-shadow: 0 0 0 rgba(29, 185, 84, 0); }
+}
+.game-card.correct-glow {
+  animation: greenGlow 1s ease-out;
+  border-color: var(--accent);
+}
+.game-card.card-p0.correct-glow { animation: glowP0 1s ease-out; border-color: var(--p0); }
+.game-card.card-p1.correct-glow { animation: glowP1 1s ease-out; border-color: var(--p1); }
+
+@keyframes redShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+@keyframes slideOut {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(60px) scale(0.7); }
+}
+.game-card.wrong-shake {
+  animation: redShake 0.5s ease-out;
+  border-color: var(--danger);
+}
+.game-card.wrong-slide {
+  animation: slideOut 0.4s ease-in forwards;
+}
+
+.game-card.replay-pulse { animation: greenGlow 0.6s ease-out; }
+.game-card.card-p0.replay-pulse { animation: glowP0 0.6s ease-out; }
+.game-card.card-p1.replay-pulse { animation: glowP1 0.6s ease-out; }
+
+/* Discard modal */
+.discard-modal-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 60vh; overflow-y: auto;
+}
+.discard-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border-radius: 8px; padding: 10px;
+  cursor: pointer; transition: background 0.2s;
+  border-left: 3px solid transparent;
+}
+.discard-item.discard-p0 { border-left-color: var(--p0); background: linear-gradient(90deg, rgba(231,76,60,0.08), var(--bg) 40%); }
+.discard-item.discard-p1 { border-left-color: var(--p1); background: linear-gradient(90deg, rgba(52,152,219,0.08), var(--bg) 40%); }
+.discard-item:hover { background: var(--surface2); }
+.discard-item-year {
+  font-size: 20px; font-weight: 800; color: var(--accent); min-width: 50px; text-align: center;
+}
+.discard-item.discard-p0 .discard-item-year { color: var(--p0); }
+.discard-item.discard-p1 .discard-item-year { color: var(--p1); }
+.discard-item-info { flex: 1; min-width: 0; }
+.discard-item-artist {
+  font-size: 13px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.discard-item-title {
+  font-size: 12px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.discard-item-player {
+  font-size: 11px; color: var(--text-dim);
+}
+
+/* Victory overlay */
+.victory-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 250; padding: 20px;
+}
+.victory-overlay.hidden { display: none; }
+.victory-card {
+  background: var(--surface); border-radius: 20px; padding: 40px 30px;
+  text-align: center; max-width: 400px; width: 100%;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 40px rgba(29, 185, 84, 0.3);
+}
+.victory-card.victory-p0 { border-color: var(--p0); box-shadow: 0 0 40px var(--p0-glow); }
+.victory-card.victory-p1 { border-color: var(--p1); box-shadow: 0 0 40px var(--p1-glow); }
+.victory-title {
+  font-size: 28px; font-weight: 800; color: var(--accent);
+  margin-bottom: 8px;
+}
+.victory-card.victory-p0 .victory-title { color: var(--p0); }
+.victory-card.victory-p1 .victory-title { color: var(--p1); }
+.victory-subtitle {
+  font-size: 16px; color: var(--text-dim); margin-bottom: 24px;
+}
+.victory-actions { display: flex; flex-direction: column; gap: 10px; }
+
+/* Setup modal additions */
+.setup-player-inputs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.setup-player-inputs input {
+  background: var(--bg); border: 1px solid #444; border-radius: 8px;
+  color: var(--text); padding: 10px; font-size: 14px; width: 100%;
+}
+.setup-player-inputs label {
+  font-size: 13px; color: var(--text-dim); margin-bottom: 2px;
+}
+.setup-win-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.setup-win-row label { font-size: 13px; color: var(--text-dim); }
+.setup-win-row select {
+  background: var(--bg); border: 1px solid #444; border-radius: 8px;
+  color: var(--text); padding: 6px 10px; font-size: 14px;
+}
 </style>
 </head>
 <body>
@@ -269,6 +545,10 @@ input[type="file"] { display: none; }
     <button class="btn btn-outline" onclick="playRandom()">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
       Random Song
+    </button>
+    <button class="btn btn-outline" onclick="showGameSetup()" style="border-color:var(--accent)">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Start Game
     </button>
   </div>
   <div class="song-count" id="song-count"></div>
@@ -477,6 +757,77 @@ input[type="file"] { display: none; }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeSongModal()">Cancel</button>
       <button class="btn" id="modal-save-btn" onclick="saveSong()">Add Song</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME SETUP MODAL -->
+<div class="modal-overlay hidden" id="game-setup-modal">
+  <div class="modal">
+    <h2>New Game</h2>
+    <div class="setup-player-inputs">
+      <div>
+        <label style="color:#f1948a">&#9679; Player 1 (Red)</label>
+        <input type="text" id="setup-p1-name" placeholder="Player 1" style="border-color:rgba(231,76,60,0.4)">
+      </div>
+      <div>
+        <label style="color:#85c1e9">&#9679; Player 2 (Blue)</label>
+        <input type="text" id="setup-p2-name" placeholder="Player 2" style="border-color:rgba(52,152,219,0.4)">
+      </div>
+    </div>
+    <div class="setup-win-row">
+      <label>Cards to win:</label>
+      <select id="setup-win-count">
+        <option value="5">5</option>
+        <option value="7">7</option>
+        <option value="10" selected>10</option>
+        <option value="15">15</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeGameSetup()">Cancel</button>
+      <button class="btn" onclick="startGame()">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME BOARD SCREEN -->
+<div id="game-board" class="screen">
+  <!-- Top bar -->
+  <div class="game-topbar">
+    <button class="sdk-play-btn" id="game-play-btn" onclick="togglePlayback()">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <div class="sdk-progress-wrap" onclick="seekPlayback(event, this)">
+      <div class="sdk-progress-bar" id="game-progress-bar"></div>
+    </div>
+    <span class="game-topbar-status" id="game-status-text">Listen &amp; guess!</span>
+    <button class="game-topbar-btn" id="game-discard-btn" onclick="showDiscardModal()">&#128465; 0</button>
+    <button class="game-topbar-btn" onclick="quitGame()">Quit</button>
+  </div>
+  <!-- Player rows -->
+  <div class="game-body" id="game-body"></div>
+</div>
+
+<!-- DISCARD PILE MODAL -->
+<div class="modal-overlay hidden" id="discard-modal">
+  <div class="modal" style="max-width:480px">
+    <h2>Discard Pile</h2>
+    <div class="discard-modal-list" id="discard-list"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-outline btn-block" onclick="closeDiscardModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- VICTORY OVERLAY -->
+<div class="victory-overlay hidden" id="victory-overlay">
+  <div class="victory-card">
+    <div class="victory-title" id="victory-title">Player Wins!</div>
+    <div class="victory-subtitle" id="victory-subtitle">With 10 cards</div>
+    <div class="victory-actions">
+      <button class="btn" onclick="showGameSetup()">Play Again</button>
+      <button class="btn btn-outline" onclick="quitGame()">Back to Home</button>
     </div>
   </div>
 </div>
@@ -1854,6 +2205,451 @@ async function spotifyLookupWithToken() {
   statusEl.textContent = 'Done! Found Spotify IDs for ' + found + '/' + missing.length + ' songs.';
   spotifyToken = null;
 }
+
+// ==================== GAME BOARD ====================
+var gameState = {
+  active: false,
+  players: [
+    { name: 'Player 1', cards: [] },
+    { name: 'Player 2', cards: [] }
+  ],
+  currentPlayer: 0,
+  currentSong: null,
+  discardPile: [],
+  phase: 'listening', // listening, placing, revealing, checking
+  winCount: 10,
+  usedSongIds: []
+};
+
+function showGameSetup() {
+  document.getElementById('victory-overlay').classList.add('hidden');
+  document.getElementById('setup-p1-name').value = gameState.players[0].name || 'Player 1';
+  document.getElementById('setup-p2-name').value = gameState.players[1].name || 'Player 2';
+  document.getElementById('game-setup-modal').classList.remove('hidden');
+}
+
+function closeGameSetup() {
+  document.getElementById('game-setup-modal').classList.add('hidden');
+}
+
+function startGame() {
+  var p1 = document.getElementById('setup-p1-name').value.trim() || 'Player 1';
+  var p2 = document.getElementById('setup-p2-name').value.trim() || 'Player 2';
+  var winCount = parseInt(document.getElementById('setup-win-count').value) || 10;
+
+  gameState = {
+    active: true,
+    players: [
+      { name: p1, cards: [] },
+      { name: p2, cards: [] }
+    ],
+    currentPlayer: 0,
+    currentSong: null,
+    discardPile: [],
+    phase: 'listening',
+    winCount: winCount,
+    usedSongIds: []
+  };
+
+  closeGameSetup();
+  document.getElementById('victory-overlay').classList.add('hidden');
+
+  // Hide bottom nav during game
+  document.querySelector('.nav').style.display = 'none';
+
+  // Show game board screen
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('game-board').classList.add('active');
+
+  renderGameBoard();
+  gamePlayNext();
+}
+
+function quitGame() {
+  gameState.active = false;
+  document.getElementById('victory-overlay').classList.add('hidden');
+  document.querySelector('.nav').style.display = '';
+
+  // Pause playback
+  if (sdkPlayer && sdkIsPlaying) {
+    sdkPlayer.pause();
+  }
+
+  showScreen('home');
+}
+
+function getGameSongPool() {
+  var pool;
+  if (sessionPlaylist && sessionPlaylist.tracks.length > 0) {
+    pool = sessionPlaylist.tracks;
+  } else {
+    var activeCats = getActiveCategories();
+    pool = activeCats.length > 0
+      ? songs.filter(function(s) { return activeCats.includes(s.category); })
+      : songs;
+  }
+  // Filter out already-used songs
+  return pool.filter(function(s) {
+    var id = s.spotifyId || (s.artist + '|' + s.title);
+    return gameState.usedSongIds.indexOf(id) === -1;
+  });
+}
+
+async function gamePlayNext() {
+  var pool = getGameSongPool();
+  if (pool.length === 0) {
+    // Reset used songs if pool exhausted
+    gameState.usedSongIds = [];
+    pool = getGameSongPool();
+  }
+  if (pool.length === 0) {
+    setGameStatus('No songs available!', '');
+    return;
+  }
+
+  var song = pool[Math.floor(Math.random() * pool.length)];
+  var songId = song.spotifyId || (song.artist + '|' + song.title);
+  gameState.usedSongIds.push(songId);
+  gameState.currentSong = song;
+  gameState.phase = 'listening';
+
+  setGameStatus('Listen & guess!', '');
+  renderGameBoard();
+
+  // Play via SDK
+  if (sdkReady && sdkDeviceId) {
+    resetProgressBars();
+    clearPlayerError();
+    var success = await startSDKPlayback(song);
+    if (!success) {
+      setGameStatus('Playback failed - skip?', 'wrong');
+    }
+  } else {
+    setGameStatus('Connect Spotify first!', 'wrong');
+  }
+}
+
+function setGameStatus(text, cls) {
+  var el = document.getElementById('game-status-text');
+  el.textContent = text;
+  el.className = 'game-topbar-status' + (cls ? ' ' + cls : '');
+}
+
+function renderGameBoard() {
+  var body = document.getElementById('game-body');
+  body.textContent = '';
+
+  for (var p = 0; p < gameState.players.length; p++) {
+    var player = gameState.players[p];
+    var isActive = (p === gameState.currentPlayer && gameState.phase === 'listening');
+
+    var row = document.createElement('div');
+    row.className = 'player-row player-' + p + (isActive ? ' active-turn' : '');
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'player-row-header';
+    var nameEl = document.createElement('span');
+    nameEl.className = 'player-row-name';
+    nameEl.textContent = player.name;
+    if (isActive) {
+      var star = document.createElement('span');
+      star.className = 'star';
+      star.textContent = '\u2605';
+      nameEl.appendChild(star);
+    }
+    header.appendChild(nameEl);
+    var scoreEl = document.createElement('span');
+    scoreEl.className = 'player-row-score';
+    scoreEl.textContent = player.cards.length + '/' + gameState.winCount;
+    header.appendChild(scoreEl);
+    row.appendChild(header);
+
+    // Card row
+    var cardRow = document.createElement('div');
+    cardRow.className = 'card-row';
+
+    if (isActive) {
+      // Show placement slots interspersed with cards
+      if (player.cards.length === 0) {
+        var emptySlot = createPlacementSlot(p, 0, true);
+        cardRow.appendChild(emptySlot);
+      } else {
+        // Slot before first card
+        cardRow.appendChild(createPlacementSlot(p, 0, false));
+        for (var c = 0; c < player.cards.length; c++) {
+          cardRow.appendChild(createGameCard(player.cards[c], p));
+          cardRow.appendChild(createPlacementSlot(p, c + 1, false));
+        }
+      }
+    } else {
+      // Non-active player: just show cards
+      if (player.cards.length === 0) {
+        var emptyMsg = document.createElement('div');
+        emptyMsg.style.cssText = 'color:var(--text-dim);font-size:13px;padding:10px;';
+        emptyMsg.textContent = 'No cards yet';
+        cardRow.appendChild(emptyMsg);
+      } else {
+        for (var c2 = 0; c2 < player.cards.length; c2++) {
+          cardRow.appendChild(createGameCard(player.cards[c2], p));
+        }
+      }
+    }
+
+    row.appendChild(cardRow);
+    body.appendChild(row);
+  }
+
+  // Update discard counter
+  document.getElementById('game-discard-btn').textContent = '\uD83D\uDDD1 ' + gameState.discardPile.length;
+}
+
+function createGameCard(cardData, playerIdx) {
+  var card = document.createElement('div');
+  card.className = 'game-card card-p' + playerIdx;
+
+  var year = document.createElement('div');
+  year.className = 'game-card-year';
+  year.textContent = cardData.song.year || '????';
+  card.appendChild(year);
+
+  var artist = document.createElement('div');
+  artist.className = 'game-card-artist';
+  artist.textContent = cardData.song.artist;
+  card.appendChild(artist);
+
+  var title = document.createElement('div');
+  title.className = 'game-card-title';
+  title.textContent = cardData.song.title;
+  card.appendChild(title);
+
+  // Click to replay song
+  card.addEventListener('click', function() {
+    card.classList.remove('replay-pulse');
+    void card.offsetWidth; // reflow
+    card.classList.add('replay-pulse');
+    startSDKPlayback(cardData.song);
+  });
+
+  return card;
+}
+
+function createPlacementSlot(playerIdx, position, isEmpty) {
+  var slot = document.createElement('div');
+  slot.className = 'placement-slot slot-p' + playerIdx + (isEmpty ? ' empty-row' : '');
+  slot.textContent = isEmpty ? '+ Place here' : '+';
+  slot.addEventListener('click', function() {
+    placeCard(playerIdx, position);
+  });
+  return slot;
+}
+
+async function placeCard(playerIdx, position) {
+  if (gameState.phase !== 'listening') return;
+  if (playerIdx !== gameState.currentPlayer) return;
+  if (!gameState.currentSong) return;
+
+  gameState.phase = 'placing';
+  var song = gameState.currentSong;
+  var player = gameState.players[playerIdx];
+  var cardData = { song: song };
+
+  // Insert card at position
+  player.cards.splice(position, 0, cardData);
+  renderGameBoard();
+
+  // Wait for render, then do flip animation
+  await sleep(50);
+
+  // Find the newly placed card in the DOM
+  var rows = document.querySelectorAll('.player-row');
+  var activeRow = rows[playerIdx];
+  if (!activeRow) { checkPlacement(playerIdx, position); return; }
+  var cardEls = activeRow.querySelectorAll('.game-card');
+  var placedCard = cardEls[position];
+
+  if (placedCard) {
+    // Start with the card content hidden, then reveal with flip
+    placedCard.style.transform = 'rotateY(90deg)';
+    placedCard.style.transition = 'transform 0.3s ease-out';
+    await sleep(50);
+    placedCard.style.transform = 'rotateY(0deg)';
+    await sleep(350);
+    placedCard.style.transform = '';
+    placedCard.style.transition = '';
+  }
+
+  gameState.phase = 'revealing';
+  setGameStatus('Placed: ' + song.artist + ' - ' + (song.year || '????'), '');
+
+  await sleep(200);
+  checkPlacement(playerIdx, position);
+}
+
+async function checkPlacement(playerIdx, position) {
+  gameState.phase = 'checking';
+  var player = gameState.players[playerIdx];
+  var cardData = player.cards[position];
+  var year = cardData.song.year || 0;
+
+  var leftOk = true, rightOk = true;
+  if (position > 0) {
+    var leftYear = player.cards[position - 1].song.year || 0;
+    if (year < leftYear) leftOk = false;
+  }
+  if (position < player.cards.length - 1) {
+    var rightYear = player.cards[position + 1].song.year || 0;
+    if (year > rightYear) rightOk = false;
+  }
+
+  var correct = leftOk && rightOk;
+
+  // Find placed card element for animation
+  var rows = document.querySelectorAll('.player-row');
+  var activeRow = rows[playerIdx];
+  var cardEls = activeRow ? activeRow.querySelectorAll('.game-card') : [];
+  var placedCard = cardEls[position];
+
+  if (correct) {
+    setGameStatus('Correct! ' + cardData.song.artist + ' (' + (cardData.song.year || '????') + ')', 'correct');
+    if (placedCard) {
+      placedCard.classList.add('correct-glow');
+    }
+    await sleep(1200);
+
+    // Check win condition
+    if (player.cards.length >= gameState.winCount) {
+      showVictory(playerIdx);
+      return;
+    }
+  } else {
+    setGameStatus('Wrong! ' + cardData.song.artist + ' (' + (cardData.song.year || '????') + ')', 'wrong');
+    if (placedCard) {
+      placedCard.classList.add('wrong-shake');
+      await sleep(500);
+      placedCard.classList.remove('wrong-shake');
+      placedCard.classList.add('wrong-slide');
+      await sleep(400);
+    }
+    // Remove card and add to discard
+    player.cards.splice(position, 1);
+    gameState.discardPile.push({ song: cardData.song, playerIndex: playerIdx });
+    renderGameBoard();
+    await sleep(400);
+  }
+
+  // Switch turn
+  gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.players.length;
+  await sleep(300);
+  gamePlayNext();
+}
+
+function showVictory(playerIdx) {
+  var player = gameState.players[playerIdx];
+  document.getElementById('victory-title').textContent = player.name + ' Wins!';
+  document.getElementById('victory-subtitle').textContent = 'With ' + player.cards.length + ' cards';
+  var victoryCard = document.querySelector('.victory-card');
+  victoryCard.classList.remove('victory-p0', 'victory-p1');
+  victoryCard.classList.add('victory-p' + playerIdx);
+  document.getElementById('victory-overlay').classList.remove('hidden');
+  gameState.phase = 'done';
+
+  if (sdkPlayer && sdkIsPlaying) {
+    sdkPlayer.pause();
+  }
+}
+
+function showDiscardModal() {
+  var list = document.getElementById('discard-list');
+  list.textContent = '';
+
+  if (gameState.discardPile.length === 0) {
+    var empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center;color:var(--text-dim);padding:20px;';
+    empty.textContent = 'No discards yet';
+    list.appendChild(empty);
+  } else {
+    for (var i = gameState.discardPile.length - 1; i >= 0; i--) {
+      var d = gameState.discardPile[i];
+      var item = document.createElement('div');
+      item.className = 'discard-item discard-p' + d.playerIndex;
+
+      var yearEl = document.createElement('div');
+      yearEl.className = 'discard-item-year';
+      yearEl.textContent = d.song.year || '????';
+      item.appendChild(yearEl);
+
+      var info = document.createElement('div');
+      info.className = 'discard-item-info';
+
+      var artistEl = document.createElement('div');
+      artistEl.className = 'discard-item-artist';
+      artistEl.textContent = d.song.artist;
+      info.appendChild(artistEl);
+
+      var titleEl = document.createElement('div');
+      titleEl.className = 'discard-item-title';
+      titleEl.textContent = d.song.title;
+      info.appendChild(titleEl);
+
+      var playerEl = document.createElement('div');
+      playerEl.className = 'discard-item-player';
+      playerEl.textContent = 'Discarded by ' + gameState.players[d.playerIndex].name;
+      info.appendChild(playerEl);
+
+      item.appendChild(info);
+
+      // Click to replay
+      (function(song) {
+        item.addEventListener('click', function() {
+          startSDKPlayback(song);
+        });
+      })(d.song);
+
+      list.appendChild(item);
+    }
+  }
+
+  document.getElementById('discard-modal').classList.remove('hidden');
+}
+
+function closeDiscardModal() {
+  document.getElementById('discard-modal').classList.add('hidden');
+}
+
+function sleep(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
+// Override showScreen to handle game board properly
+var _originalShowScreen = showScreen;
+showScreen = function(id) {
+  if (gameState.active && id !== 'game-board') {
+    // If quitting game, restore nav
+    gameState.active = false;
+    document.querySelector('.nav').style.display = '';
+  }
+  _originalShowScreen(id);
+};
+
+// Update game progress bar along with others
+var _origUpdateProgressBars = updateProgressBars;
+updateProgressBars = function() {
+  _origUpdateProgressBars();
+  var pct = sdkDuration > 0 ? (sdkCurrentPosition / sdkDuration * 100) : 0;
+  var gameBar = document.getElementById('game-progress-bar');
+  if (gameBar) gameBar.style.width = pct + '%';
+};
+
+// Update game play/pause button along with others
+var _origUpdatePlayPause = updatePlayPauseButtons;
+updatePlayPauseButtons = function() {
+  _origUpdatePlayPause();
+  var gameBtn = document.getElementById('game-play-btn');
+  if (gameBtn) {
+    gameBtn.innerHTML = sdkIsPlaying ? PAUSE_SVG : PLAY_SVG;
+  }
+};
 
 // ==================== SERVICE WORKER ====================
 if ('serviceWorker' in navigator) {
