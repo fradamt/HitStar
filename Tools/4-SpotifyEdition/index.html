@@ -250,6 +250,27 @@ input[type="file"] { display: none; }
   </div>
 
   <div class="setting-group">
+    <h3>Import from Spotify Playlist</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
+      Import songs directly from a Spotify playlist. Paste a playlist URL or URI.<br>
+      Requires a Spotify Client ID (set below in "Spotify Track Lookup").
+    </p>
+    <input type="text" id="playlist-url" placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..." style="margin-bottom:8px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="importFromPlaylist()">Import Playlist</button>
+      <label style="font-size:13px;color:var(--text-dim)">
+        <input type="checkbox" id="playlist-category-auto" checked> Use playlist name as category
+      </label>
+    </div>
+    <input type="text" id="playlist-category-manual" placeholder="Or enter category manually..." style="margin-top:8px;display:none">
+    <div id="playlist-status" style="font-size:13px;color:var(--text-dim);margin-top:8px"></div>
+    <div style="font-size:12px;color:var(--text-dim);margin-top:10px;border-top:1px solid #333;padding-top:10px">
+      <strong>Original Hitster playlists:</strong><br>
+      <a href="https://open.spotify.com/user/ta8hnikdhdctwuvkj2nl9itix/playlists" target="_blank" style="color:var(--accent)">open.spotify.com/user/ta8hnikdhdctwuvkj2nl9itix/playlists</a>
+    </div>
+  </div>
+
+  <div class="setting-group">
     <h3>Import from CSV / Text</h3>
     <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
       Paste lines in the format: <code>Category\Artist - Title|Year|SpotifyID</code><br>
@@ -367,9 +388,11 @@ let editingIndex = -1;
 let activeCategoryFilter = 'all';
 let gameSettings = { autoReveal: 'no', activeCategories: [], spotifyClientId: '' };
 let spotifyToken = null;
+let pendingAction = null; // 'lookup' or 'playlist'
 
 const STORAGE_KEY = 'hitstar_songs';
 const SETTINGS_KEY = 'hitstar_settings';
+const PENDING_KEY = 'hitstar_pending_action';
 
 // ==================== INIT ====================
 function init() {
@@ -385,7 +408,21 @@ function init() {
     const params = new URLSearchParams(hash.substring(1));
     spotifyToken = params.get('access_token');
     window.location.hash = '';
-    spotifyLookupWithToken();
+    pendingAction = localStorage.getItem(PENDING_KEY) || 'lookup';
+    localStorage.removeItem(PENDING_KEY);
+    if (pendingAction === 'playlist') {
+      importPlaylistWithToken();
+    } else {
+      spotifyLookupWithToken();
+    }
+  }
+
+  // Toggle manual category input visibility
+  const autoCheck = document.getElementById('playlist-category-auto');
+  if (autoCheck) {
+    autoCheck.addEventListener('change', () => {
+      document.getElementById('playlist-category-manual').style.display = autoCheck.checked ? 'none' : 'block';
+    });
   }
 
   // Load example songs if empty
@@ -893,25 +930,136 @@ function importFromText() {
   alert(`Imported ${added} new songs (${lines.length - added} skipped as duplicates).`);
 }
 
-// ==================== SPOTIFY LOOKUP ====================
-function spotifyLookupAll() {
+// ==================== SPOTIFY AUTH HELPER ====================
+function requireSpotifyAuth(action) {
   const clientId = gameSettings.spotifyClientId;
   if (!clientId) {
     alert('Please enter a Spotify Client ID first.\n\n1. Go to developer.spotify.com/dashboard\n2. Create an app\n3. Set redirect URI to: ' + window.location.origin + window.location.pathname + '\n4. Copy the Client ID here');
-    return;
+    return false;
   }
+  localStorage.setItem(PENDING_KEY, action);
+  const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+  const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=`;
+  window.location.href = authUrl;
+  return true;
+}
 
+// ==================== SPOTIFY PLAYLIST IMPORT ====================
+function importFromPlaylist() {
+  const urlInput = document.getElementById('playlist-url').value.trim();
+  if (!urlInput) { alert('Please paste a Spotify playlist URL or URI.'); return; }
+
+  // Extract playlist ID
+  let playlistId = null;
+  const urlMatch = urlInput.match(/playlist[/:]([a-zA-Z0-9]+)/);
+  if (urlMatch) playlistId = urlMatch[1];
+  if (!playlistId) { alert('Could not find a playlist ID in that URL. Expected format:\nhttps://open.spotify.com/playlist/XXXXX'); return; }
+
+  // Store playlist ID for after OAuth redirect
+  localStorage.setItem('hitstar_pending_playlist', playlistId);
+  const autoCategory = document.getElementById('playlist-category-auto').checked;
+  const manualCategory = document.getElementById('playlist-category-manual').value.trim();
+  localStorage.setItem('hitstar_pending_playlist_category', autoCategory ? '__auto__' : manualCategory);
+
+  requireSpotifyAuth('playlist');
+}
+
+async function importPlaylistWithToken() {
+  if (!spotifyToken) return;
+
+  const playlistId = localStorage.getItem('hitstar_pending_playlist');
+  const categoryPref = localStorage.getItem('hitstar_pending_playlist_category') || '__auto__';
+  localStorage.removeItem('hitstar_pending_playlist');
+  localStorage.removeItem('hitstar_pending_playlist_category');
+
+  if (!playlistId) { alert('No playlist ID found. Please try again.'); return; }
+
+  const statusEl = document.getElementById('playlist-status');
+  statusEl.textContent = 'Fetching playlist...';
+  showScreen('settings');
+
+  try {
+    // Get playlist info (name, etc.)
+    const plResp = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}?fields=name,tracks.total`, {
+      headers: { 'Authorization': 'Bearer ' + spotifyToken }
+    });
+    if (!plResp.ok) { statusEl.textContent = 'Error fetching playlist: ' + plResp.status; return; }
+    const plData = await plResp.json();
+    const category = categoryPref === '__auto__' ? plData.name : (categoryPref || plData.name);
+    const totalTracks = plData.tracks.total;
+    statusEl.textContent = `Importing "${plData.name}" (${totalTracks} tracks)...`;
+
+    // Fetch all tracks (paginated, 100 per page)
+    let added = 0, skipped = 0;
+    let offset = 0;
+    const limit = 100;
+
+    while (offset < totalTracks) {
+      const tracksResp = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=${limit}&fields=items(track(id,name,artists(name),album(release_date)))`,
+        { headers: { 'Authorization': 'Bearer ' + spotifyToken } }
+      );
+
+      if (tracksResp.status === 429) {
+        const retry = parseInt(tracksResp.headers.get('Retry-After') || '2');
+        await new Promise(r => setTimeout(r, retry * 1000));
+        continue;
+      }
+
+      if (!tracksResp.ok) { statusEl.textContent = 'Error fetching tracks: ' + tracksResp.status; break; }
+
+      const tracksData = await tracksResp.json();
+      for (const item of tracksData.items) {
+        const track = item.track;
+        if (!track || !track.id) { skipped++; continue; }
+
+        const artist = track.artists.map(a => a.name).join(', ');
+        const title = track.name;
+        const year = track.album && track.album.release_date
+          ? parseInt(track.album.release_date.substring(0, 4)) || null
+          : null;
+
+        // Skip duplicates
+        const exists = songs.some(s =>
+          s.artist.toLowerCase() === artist.toLowerCase() &&
+          s.title.toLowerCase() === title.toLowerCase()
+        );
+        if (exists) { skipped++; continue; }
+
+        songs.push({
+          artist,
+          title,
+          year,
+          category,
+          spotifyId: track.id,
+          qrCode: `${category}/${artist} - ${title}`
+        });
+        added++;
+      }
+
+      offset += limit;
+      statusEl.textContent = `Importing "${plData.name}"... ${added} added, ${skipped} skipped (${offset}/${totalTracks})`;
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    saveSongsToStorage();
+    renderSongList();
+    renderCategoryFilters();
+    statusEl.textContent = `Done! Imported ${added} songs from "${plData.name}" (${skipped} skipped as duplicates or empty).`;
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e.message;
+  }
+  spotifyToken = null;
+}
+
+// ==================== SPOTIFY TRACK LOOKUP ====================
+function spotifyLookupAll() {
   const missing = songs.filter(s => !s.spotifyId);
   if (missing.length === 0) {
     alert('All songs already have Spotify Track IDs!');
     return;
   }
-
-  // Redirect to Spotify auth
-  const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-  const scope = '';
-  const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scope}`;
-  window.location.href = authUrl;
+  requireSpotifyAuth('lookup');
 }
 
 async function spotifyLookupWithToken() {
