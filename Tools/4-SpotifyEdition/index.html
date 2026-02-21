@@ -586,8 +586,8 @@ function initializeSDKPlayer(token) {
     updateHomeConnectUI();
   });
   sdkPlayer.addListener('account_error', function(e) {
-    showToast('Spotify Premium is required for playback.', 'error');
-    updateSDKStatus('Premium required');
+    showToast('Spotify account error: ' + (e.message || 'check your subscription'), 'error');
+    updateSDKStatus('Account error');
   });
   sdkPlayer.addListener('playback_error', function(e) {
     showToast('Playback error: ' + e.message, 'error');
@@ -1085,12 +1085,10 @@ async function playSong(song) {
   }
 }
 
-// Resolve a Spotify track ID on the fly via the Search API.
+// Look up a Spotify track ID via the Search API.
 // Caches the result on the song object and in localStorage.
-async function resolveSpotifyId(song) {
-  if (song.spotifyId) return song.spotifyId;
+async function searchSpotifyId(song) {
   if (!sdkToken || !song.artist || !song.title) return null;
-
   try {
     var q = encodeURIComponent('track:' + song.title + ' artist:' + song.artist);
     var resp = await fetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=1', {
@@ -1100,37 +1098,42 @@ async function resolveSpotifyId(song) {
     var data = await resp.json();
     var tracks = data.tracks && data.tracks.items;
     if (tracks && tracks.length > 0) {
-      song.spotifyId = tracks[0].id;
-      // Persist to library so we don't re-lookup next time
+      var newId = tracks[0].id;
+      song.spotifyId = newId;
       var idx = songs.indexOf(song);
       if (idx >= 0) {
-        songs[idx].spotifyId = song.spotifyId;
+        songs[idx].spotifyId = newId;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
       }
-      return song.spotifyId;
+      return newId;
     }
-  } catch (e) { /* ignore, return null */ }
+  } catch (e) { /* ignore */ }
   return null;
+}
+
+async function playTrackById(trackId) {
+  var resp = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + sdkDeviceId, {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'Bearer ' + sdkToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ uris: ['spotify:track:' + trackId] })
+  });
+  return resp;
 }
 
 async function startSDKPlayback(song) {
   if (!sdkReady || !sdkDeviceId || !sdkToken) return false;
 
-  // Resolve track ID on the fly if missing
+  // Resolve track ID if missing
   if (!song.spotifyId) {
-    var resolved = await resolveSpotifyId(song);
+    var resolved = await searchSpotifyId(song);
     if (!resolved) return false;
   }
 
   try {
-    var resp = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + sdkDeviceId, {
-      method: 'PUT',
-      headers: {
-        'Authorization': 'Bearer ' + sdkToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ uris: ['spotify:track:' + song.spotifyId] })
-    });
+    var resp = await playTrackById(song.spotifyId);
 
     if (resp.status === 204 || resp.status === 200) return true;
 
@@ -1147,8 +1150,16 @@ async function startSDKPlayback(song) {
       return false;
     }
 
-    if (resp.status === 403) {
-      showToast('Spotify Premium is required for playback.', 'error');
+    // 403 or 404 likely means a stale/invalid track ID — try re-resolving
+    if (resp.status === 403 || resp.status === 404) {
+      var oldId = song.spotifyId;
+      song.spotifyId = null; // clear so searchSpotifyId does a fresh lookup
+      var freshId = await searchSpotifyId(song);
+      if (freshId && freshId !== oldId) {
+        var retry = await playTrackById(freshId);
+        if (retry.status === 204 || retry.status === 200) return true;
+      }
+      showToast('Track not available on Spotify', 'error');
       return false;
     }
 
