@@ -194,9 +194,9 @@ input[type="file"] { display: none; }
     </button>
   </div>
   <div class="song-count" id="song-count"></div>
-  <div class="spotify-badge">
+  <div class="spotify-badge" id="home-spotify-badge">
     <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-    Plays through your Spotify app
+    <span id="home-badge-text">Plays through your Spotify app</span>
   </div>
 </div>
 
@@ -216,8 +216,8 @@ input[type="file"] { display: none; }
     <div class="np-listening-icon">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="var(--accent)" opacity="0.8"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
     </div>
-    <div style="font-size:18px;font-weight:600;margin:16px 0 6px">Now playing in Spotify</div>
-    <div style="font-size:14px;color:var(--text-dim)">Listen and guess the song!</div>
+    <div id="np-status-text" style="font-size:18px;font-weight:600;margin:16px 0 6px">Now playing in Spotify</div>
+    <div id="np-status-sub" style="font-size:14px;color:var(--text-dim)">Listen and guess the song!</div>
   </div>
 
   <!-- Post-reveal: shows full song info -->
@@ -314,6 +314,19 @@ input[type="file"] { display: none; }
   </div>
 
   <div class="setting-group">
+    <h3>Background Playback</h3>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
+      Play songs directly through Spotify without opening the app.<br>
+      Requires Spotify Premium and Spotify running on a device (phone, PC, etc.).<br>
+      Uses the same Client ID from "Spotify Track Lookup" above.
+    </p>
+    <div id="playback-connect-area">
+      <button class="btn btn-sm" onclick="connectPlayback()" id="btn-connect-playback">Connect to Spotify</button>
+      <span id="playback-status" style="font-size:13px;color:var(--text-dim);margin-left:10px"></span>
+    </div>
+  </div>
+
+  <div class="setting-group">
     <h3>Game Settings</h3>
     <div class="setting-row">
       <label>Active categories for Random mode</label>
@@ -326,7 +339,7 @@ input[type="file"] { display: none; }
     <p style="font-size:13px;color:var(--text-dim)">
       HitStar Spotify Edition<br>
       A zero-download companion for the HitStar music quiz game.<br>
-      Songs play directly in your Spotify app &mdash; no OAuth, no API keys needed for gameplay.<br><br>
+      Songs play through Spotify &mdash; connect for background playback, or use deep links with no setup.<br><br>
       Built as part of the <a href="https://github.com/Born2Root/HitStar" target="_blank" style="color:var(--accent)">HitStar</a> open source project.
     </p>
   </div>
@@ -400,7 +413,9 @@ let editingIndex = -1;
 let activeCategoryFilter = 'all';
 let gameSettings = { autoReveal: 'no', activeCategories: [], spotifyClientId: '' };
 let spotifyToken = null;
-let pendingAction = null; // 'lookup' or 'playlist'
+let pendingAction = null; // 'lookup', 'playlist', or 'playback'
+let playbackToken = null;
+let playbackTokenExpiry = 0;
 
 const STORAGE_KEY = 'hitstar_songs';
 const SETTINGS_KEY = 'hitstar_settings';
@@ -418,14 +433,22 @@ function init() {
   const hash = window.location.hash;
   if (hash.includes('access_token')) {
     const params = new URLSearchParams(hash.substring(1));
-    spotifyToken = params.get('access_token');
+    const token = params.get('access_token');
+    const expiresIn = parseInt(params.get('expires_in') || '3600');
     window.location.hash = '';
     pendingAction = localStorage.getItem(PENDING_KEY) || 'lookup';
     localStorage.removeItem(PENDING_KEY);
-    if (pendingAction === 'playlist') {
-      importPlaylistWithToken();
+    if (pendingAction === 'playback') {
+      playbackToken = token;
+      playbackTokenExpiry = Date.now() + expiresIn * 1000;
+      updatePlaybackStatus();
     } else {
-      spotifyLookupWithToken();
+      spotifyToken = token;
+      if (pendingAction === 'playlist') {
+        importPlaylistWithToken();
+      } else {
+        spotifyLookupWithToken();
+      }
     }
   }
 
@@ -622,7 +645,7 @@ function interpretAsSpotifyLink(text) {
 }
 
 // ==================== PLAYBACK ====================
-function playSong(song) {
+async function playSong(song) {
   currentSong = song;
 
   // Set up the listening (pre-reveal) state
@@ -640,7 +663,17 @@ function playSong(song) {
 
   showScreen('now-playing');
 
-  // Auto-open in Spotify immediately
+  // Try background playback first, fall back to opening Spotify
+  if (isPlaybackConnected() && song.spotifyId) {
+    const success = await startBackgroundPlayback(song);
+    if (success) {
+      document.getElementById('np-status-text').textContent = 'Playing in background';
+      document.getElementById('np-status-sub').textContent = 'Listen and guess the song!';
+      return;
+    }
+  }
+  document.getElementById('np-status-text').textContent = 'Now playing in Spotify';
+  document.getElementById('np-status-sub').textContent = 'Listen and guess the song!';
   openCurrentInSpotify();
 }
 
@@ -652,8 +685,13 @@ function getSpotifyUrl(song) {
   return 'https://open.spotify.com/search/' + query;
 }
 
-function openCurrentInSpotify() {
+async function openCurrentInSpotify() {
   if (!currentSong) return;
+  // Try background playback first
+  if (isPlaybackConnected() && currentSong.spotifyId) {
+    const success = await startBackgroundPlayback(currentSong);
+    if (success) return;
+  }
   window.open(getSpotifyUrl(currentSong), '_blank');
 }
 
@@ -951,9 +989,92 @@ function requireSpotifyAuth(action) {
   }
   localStorage.setItem(PENDING_KEY, action);
   const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-  const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=`;
+  const scopes = action === 'playback'
+    ? 'user-modify-playback-state user-read-playback-state'
+    : '';
+  const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${encodeURIComponent(scopes)}`;
   window.location.href = authUrl;
   return true;
+}
+
+// ==================== BACKGROUND PLAYBACK ====================
+function connectPlayback() {
+  requireSpotifyAuth('playback');
+}
+
+function isPlaybackConnected() {
+  return playbackToken && Date.now() < playbackTokenExpiry;
+}
+
+function updatePlaybackStatus() {
+  const statusEl = document.getElementById('playback-status');
+  const btnEl = document.getElementById('btn-connect-playback');
+  const badgeEl = document.getElementById('home-badge-text');
+  if (!statusEl) return;
+  if (isPlaybackConnected()) {
+    const mins = Math.round((playbackTokenExpiry - Date.now()) / 60000);
+    statusEl.textContent = `Connected (${mins} min remaining)`;
+    statusEl.style.color = 'var(--accent)';
+    btnEl.textContent = 'Reconnect';
+    if (badgeEl) badgeEl.textContent = 'Background playback connected';
+  } else {
+    statusEl.textContent = playbackToken ? 'Session expired' : '';
+    statusEl.style.color = 'var(--text-dim)';
+    btnEl.textContent = 'Connect to Spotify';
+    if (badgeEl) badgeEl.textContent = 'Plays through your Spotify app';
+  }
+}
+
+async function startBackgroundPlayback(song) {
+  if (!isPlaybackConnected() || !song.spotifyId) return false;
+
+  try {
+    // Try to start playback on the user's active device
+    const resp = await fetch('https://api.spotify.com/v1/me/player/play', {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + playbackToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ uris: ['spotify:track:' + song.spotifyId] })
+    });
+
+    if (resp.status === 204 || resp.status === 200) return true;
+
+    // 404 = no active device, try to find one and transfer playback
+    if (resp.status === 404) {
+      const devResp = await fetch('https://api.spotify.com/v1/me/player/devices', {
+        headers: { 'Authorization': 'Bearer ' + playbackToken }
+      });
+      if (!devResp.ok) return false;
+      const devData = await devResp.json();
+      const devices = devData.devices || [];
+      if (devices.length === 0) return false;
+
+      // Pick the first available device
+      const device = devices[0];
+      const retryResp = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + device.id, {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + playbackToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uris: ['spotify:track:' + song.spotifyId] })
+      });
+      return retryResp.status === 204 || retryResp.status === 200;
+    }
+
+    // 401 = token expired
+    if (resp.status === 401) {
+      playbackToken = null;
+      playbackTokenExpiry = 0;
+      updatePlaybackStatus();
+    }
+
+    return false;
+  } catch (e) {
+    return false;
+  }
 }
 
 // ==================== SPOTIFY PLAYLIST IMPORT ====================
