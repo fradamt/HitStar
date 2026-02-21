@@ -81,14 +81,6 @@ h2 { font-size: 18px; margin-bottom: 10px; color: var(--text-dim); }
 .connect-prompt .setup-fields label { font-size: 12px; color: var(--text-dim); display: block; margin-bottom: 4px; }
 .connect-prompt .setup-fields input { margin-bottom: 10px; }
 
-/* SCANNER */
-#scanner { align-items: center; }
-#scanner-container {
-  width: 100%; max-width: 400px; margin: 16px auto;
-  border-radius: 12px; overflow: hidden; background: #000;
-}
-#scanner-status { color: var(--text-dim); text-align: center; margin: 10px 0; }
-
 /* NOW PLAYING */
 #now-playing { align-items: center; justify-content: center; gap: 20px; text-align: center; }
 .np-card {
@@ -679,23 +671,10 @@ input[type="file"] { display: none; }
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
       Connect Spotify Premium
     </button>
-    <div class="setup-fields" id="home-setup-fields" style="display:none">
-      <label>Spotify Client ID (<a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--accent)">get one here</a>)</label>
-      <input type="text" id="home-client-id" placeholder="Paste your Client ID..." onchange="saveHomeClientId()">
-      <button class="btn btn-sm btn-block" onclick="connectSpotifySDK()">Connect</button>
-    </div>
   </div>
 
   <div class="home-actions" id="home-actions">
-    <button class="btn" onclick="startScanner()">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-      Scan Card
-    </button>
-    <button class="btn btn-outline" onclick="playRandom()">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-      Random Song
-    </button>
-    <button class="btn btn-outline" onclick="showGameSetup()" style="border-color:var(--accent)">
+    <button class="btn" onclick="showGameSetup()">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
       Start Game
     </button>
@@ -706,14 +685,6 @@ input[type="file"] { display: none; }
     <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
     <span id="home-badge-text">Connect Spotify to play</span>
   </div>
-</div>
-
-<!-- SCANNER SCREEN -->
-<div id="scanner" class="screen">
-  <h1>Scan a Card</h1>
-  <div id="scanner-container"></div>
-  <p id="scanner-status">Point your camera at a HitStar QR code</p>
-  <button class="btn btn-outline btn-block" onclick="stopScanner(); showScreen('home')" style="margin-top:12px">Cancel</button>
 </div>
 
 <!-- NOW PLAYING SCREEN -->
@@ -787,14 +758,8 @@ input[type="file"] { display: none; }
   <div class="setting-group">
     <h3>Spotify Connection</h3>
     <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
-      Connect to Spotify Premium to play music directly in the browser via the Web Playback SDK.<br>
-      You need a Client ID from <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--accent)">developer.spotify.com/dashboard</a>.
-      Set the redirect URI to: <code style="font-size:11px;color:var(--accent)" id="redirect-uri-display"></code>
+      Connect to Spotify Premium to play music directly in the browser via the Web Playback SDK.
     </p>
-    <div class="form-group" style="margin-bottom:10px">
-      <label style="font-size:13px;color:var(--text-dim)">Spotify Client ID</label>
-      <input type="text" id="spotify-client-id" placeholder="e.g. a1b2c3d4e5f6..." onchange="saveClientId()">
-    </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="connectSpotifySDK()" id="btn-connect-sdk">Connect Spotify</button>
       <span id="sdk-connection-status" style="font-size:13px;color:var(--text-dim)"></span>
@@ -993,10 +958,6 @@ input[type="file"] { display: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
     Home
   </button>
-  <button onclick="startScanner()" id="nav-scan">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-    Scan
-  </button>
   <button onclick="showScreen('songs')" id="nav-songs">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13M9 18c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3zM21 16c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z"/></svg>
     Songs
@@ -1007,8 +968,6 @@ input[type="file"] { display: none; }
   </button>
 </nav>
 
-<!-- QR Scanner library -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <!-- Spotify Web Playback SDK -->
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 
@@ -1016,11 +975,10 @@ input[type="file"] { display: none; }
 // ==================== STATE ====================
 var songs = [];
 var currentSong = null;
-var scanner = null;
-var isScanning = false;
 var editingIndex = -1;
 var activeCategoryFilter = 'all';
-var gameSettings = { autoReveal: 'no', activeCategories: [], spotifyClientId: '' };
+var SPOTIFY_CLIENT_ID = '487c104a2e1745778856e769dec3c079';
+var gameSettings = { autoReveal: 'no', activeCategories: [], spotifyClientId: SPOTIFY_CLIENT_ID };
 var spotifyToken = null;
 var pendingAction = null;
 
@@ -1160,30 +1118,9 @@ function updateHomeConnectUI() {
 }
 
 function connectSpotifySDK() {
-  var clientId = gameSettings.spotifyClientId || document.getElementById('spotify-client-id').value.trim();
-  var homeInput = document.getElementById('home-client-id');
-  if (!clientId && homeInput) {
-    clientId = homeInput.value.trim();
-  }
-  if (!clientId) {
-    var fields = document.getElementById('home-setup-fields');
-    if (fields) fields.style.display = '';
-    showToast('Please enter a Spotify Client ID first', 'error');
-    return;
-  }
-  gameSettings.spotifyClientId = clientId;
+  gameSettings.spotifyClientId = SPOTIFY_CLIENT_ID;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(gameSettings));
-  document.getElementById('spotify-client-id').value = clientId;
   requireSpotifyAuth('sdk');
-}
-
-function saveHomeClientId() {
-  var val = document.getElementById('home-client-id').value.trim();
-  if (val) {
-    gameSettings.spotifyClientId = val;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(gameSettings));
-    document.getElementById('spotify-client-id').value = val;
-  }
 }
 
 // ==================== PLAY/PAUSE CONTROLS ====================
@@ -1271,10 +1208,6 @@ function init() {
   renderSongList();
   renderCategoryFilters();
 
-  // Display redirect URI
-  var uriDisplay = document.getElementById('redirect-uri-display');
-  if (uriDisplay) uriDisplay.textContent = window.location.origin + window.location.pathname;
-
   // Restore SDK token from storage if still valid
   var storedToken = localStorage.getItem(SDK_TOKEN_KEY);
   var storedExpiry = parseInt(localStorage.getItem(SDK_TOKEN_EXPIRY_KEY) || '0');
@@ -1322,11 +1255,8 @@ function init() {
     loadExampleSongs();
   }
 
-  // Sync home client ID input
-  var homeIdInput = document.getElementById('home-client-id');
-  if (homeIdInput && gameSettings.spotifyClientId) {
-    homeIdInput.value = gameSettings.spotifyClientId;
-  }
+  // Ensure hardcoded client ID is always set
+  gameSettings.spotifyClientId = SPOTIFY_CLIENT_ID;
 
   updateHomeConnectUI();
   updateSessionPlaylistIndicator();
@@ -1389,19 +1319,14 @@ function loadSettings() {
         if (parsed.hasOwnProperty(k)) gameSettings[k] = parsed[k];
       }
     }
-    document.getElementById('spotify-client-id').value = gameSettings.spotifyClientId || '';
   } catch (e) {}
+  // Always use hardcoded client ID
+  gameSettings.spotifyClientId = SPOTIFY_CLIENT_ID;
 }
 
 function saveSetting(key, value) {
   gameSettings[key] = value;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(gameSettings));
-}
-
-function saveClientId() {
-  saveSetting('spotifyClientId', document.getElementById('spotify-client-id').value.trim());
-  var homeInput = document.getElementById('home-client-id');
-  if (homeInput) homeInput.value = gameSettings.spotifyClientId;
 }
 
 function updateSongCount() {
@@ -1443,107 +1368,8 @@ function showScreen(id) {
   var navBtn = document.getElementById('nav-' + id);
   if (navBtn) navBtn.classList.add('active');
 
-  if (id !== 'scanner' && isScanning) stopScanner();
   if (id === 'songs') { renderSongList(); renderCategoryFilters(); }
   if (id === 'settings') renderSettingsCategories();
-}
-
-// ==================== QR SCANNER ====================
-function startScanner() {
-  showScreen('scanner');
-  document.getElementById('scanner-status').textContent = 'Starting camera...';
-
-  if (scanner) { scanner.clear(); }
-
-  scanner = new Html5Qrcode('scanner-container');
-  isScanning = true;
-
-  scanner.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 250, height: 250 } },
-    onScanSuccess,
-    function() {}
-  ).then(function() {
-    document.getElementById('scanner-status').textContent = 'Point at a QR code...';
-  }).catch(function(err) {
-    document.getElementById('scanner-status').textContent = 'Camera error: ' + err;
-    isScanning = false;
-  });
-}
-
-function stopScanner() {
-  if (scanner && isScanning) {
-    scanner.stop().then(function() { scanner.clear(); }).catch(function() {});
-    isScanning = false;
-  }
-}
-
-function onScanSuccess(decoded) {
-  stopScanner();
-
-  var song = matchQrToSong(decoded);
-  if (song) {
-    playSong(song);
-  } else {
-    var spotifyUrl = interpretAsSpotifyLink(decoded);
-    if (spotifyUrl) {
-      var trackMatch = spotifyUrl.match(/track\/([a-zA-Z0-9]+)/);
-      if (trackMatch) {
-        playSong({ artist: 'Unknown', title: 'Scanned Track', year: null, category: '', spotifyId: trackMatch[1] });
-      } else {
-        document.getElementById('scanner-status').textContent = 'Unrecognized Spotify link: ' + decoded;
-        setTimeout(function() { startScanner(); }, 2000);
-      }
-    } else {
-      document.getElementById('scanner-status').textContent = 'Unknown QR code: ' + decoded;
-      setTimeout(function() { startScanner(); }, 2000);
-    }
-  }
-}
-
-function matchQrToSong(qrContent) {
-  var normalized = qrContent.replace(/\\/g, '/').replace(/\.(mp3|flac|ogg|wav|m4a)$/i, '');
-  var allSongs = sessionPlaylist ? songs.concat(sessionPlaylist.tracks) : songs;
-
-  var match = allSongs.find(function(s) { return s.qrCode === normalized || s.qrCode === qrContent; });
-  if (match) return match;
-
-  var parts = normalized.split('/');
-  if (parts.length === 2) {
-    var category = parts[0].trim();
-    var songPart = parts[1].trim();
-    var dashIdx = songPart.indexOf(' - ');
-    if (dashIdx > 0) {
-      var artist = songPart.substring(0, dashIdx).trim();
-      var title = songPart.substring(dashIdx + 3).trim();
-      match = allSongs.find(function(s) {
-        return s.artist.toLowerCase() === artist.toLowerCase() &&
-          s.title.toLowerCase() === title.toLowerCase();
-      });
-      if (match) return match;
-    }
-  }
-
-  var spotifyMatch = qrContent.match(/spotify:track:([a-zA-Z0-9]+)/);
-  if (spotifyMatch) {
-    match = allSongs.find(function(s) { return s.spotifyId === spotifyMatch[1]; });
-    if (match) return match;
-  }
-
-  var urlMatch = qrContent.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);
-  if (urlMatch) {
-    match = allSongs.find(function(s) { return s.spotifyId === urlMatch[1]; });
-    if (match) return match;
-  }
-
-  return null;
-}
-
-function interpretAsSpotifyLink(text) {
-  var uriMatch = text.match(/spotify:track:([a-zA-Z0-9]+)/);
-  if (uriMatch) return 'https://open.spotify.com/track/' + uriMatch[1];
-  if (text.includes('open.spotify.com')) return text;
-  return null;
 }
 
 // ==================== PLAYBACK ====================
@@ -2162,18 +1988,13 @@ async function generateCodeChallenge(verifier) {
 }
 
 async function requireSpotifyAuth(action) {
-  var clientId = gameSettings.spotifyClientId;
-  if (!clientId) {
-    alert('Please enter a Spotify Client ID first.\n\n1. Go to developer.spotify.com/dashboard\n2. Create an app\n3. Set redirect URI to: ' + window.location.origin + window.location.pathname + '\n4. Copy the Client ID here');
-    return false;
-  }
   localStorage.setItem(PENDING_KEY, action);
   var verifier = generateCodeVerifier();
   localStorage.setItem(PKCE_VERIFIER_KEY, verifier);
   var challenge = await generateCodeChallenge(verifier);
   var redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
   var scopes = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative';
-  var authUrl = 'https://accounts.spotify.com/authorize?client_id=' + clientId
+  var authUrl = 'https://accounts.spotify.com/authorize?client_id=' + SPOTIFY_CLIENT_ID
     + '&response_type=code&redirect_uri=' + redirectUri
     + '&scope=' + encodeURIComponent(scopes)
     + '&code_challenge_method=S256&code_challenge=' + challenge;
@@ -2182,10 +2003,9 @@ async function requireSpotifyAuth(action) {
 }
 
 async function exchangeCodeForToken(code) {
-  var clientId = gameSettings.spotifyClientId;
   var verifier = localStorage.getItem(PKCE_VERIFIER_KEY);
   localStorage.removeItem(PKCE_VERIFIER_KEY);
-  if (!verifier || !clientId) return null;
+  if (!verifier) return null;
 
   var redirectUri = window.location.origin + window.location.pathname;
   var resp = await fetch('https://accounts.spotify.com/api/token', {
@@ -2193,7 +2013,7 @@ async function exchangeCodeForToken(code) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=authorization_code&code=' + encodeURIComponent(code)
       + '&redirect_uri=' + encodeURIComponent(redirectUri)
-      + '&client_id=' + encodeURIComponent(clientId)
+      + '&client_id=' + encodeURIComponent(SPOTIFY_CLIENT_ID)
       + '&code_verifier=' + encodeURIComponent(verifier)
   });
   if (!resp.ok) return null;
