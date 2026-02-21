@@ -473,6 +473,41 @@ input[type="file"] { display: none; }
 .game-card.card-p0.replay-pulse { animation: glowP0 0.6s ease-out; }
 .game-card.card-p1.replay-pulse { animation: glowP1 0.6s ease-out; }
 
+/* Visual discard pile on game board */
+.discard-pile-visual {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer; margin-top: 16px; align-self: center;
+}
+.discard-pile-card-empty {
+  min-width: 90px; height: 110px; border-radius: 10px;
+  border: 2px dashed rgba(255,255,255,0.15);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-dim); font-size: 13px;
+}
+.discard-pile-card {
+  min-width: 90px; max-width: 100px; height: 110px;
+  background: var(--card-bg); border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 8px 6px;
+  border: 2px solid transparent; position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.15s;
+}
+.discard-pile-card:hover { transform: scale(1.05); }
+.discard-pile-card.card-p0 { border-color: rgba(231,76,60,0.4); }
+.discard-pile-card.card-p1 { border-color: rgba(52,152,219,0.4); }
+.discard-pile-card.card-p0 .game-card-year { color: var(--p0); }
+.discard-pile-card.card-p1 .game-card-year { color: var(--p1); }
+.discard-pile-count {
+  position: absolute; top: -8px; right: -8px;
+  background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.discard-pile-label {
+  font-size: 12px; color: var(--text-dim);
+}
+
 /* Discard modal */
 .discard-modal-list {
   display: flex; flex-direction: column; gap: 8px;
@@ -2429,8 +2464,61 @@ function renderGameBoard() {
     body.appendChild(row);
   }
 
-  // Update discard counter
+  // Update discard counter in top bar
   document.getElementById('game-discard-btn').textContent = '\uD83D\uDDD1 ' + gameState.discardPile.length;
+
+  // Render visual discard pile
+  var existingPile = document.getElementById('game-discard-pile');
+  if (existingPile) existingPile.remove();
+
+  var pile = document.createElement('div');
+  pile.id = 'game-discard-pile';
+  pile.className = 'discard-pile-visual';
+  pile.addEventListener('click', function() { showDiscardModal(); });
+
+  var pileLabel = document.createElement('div');
+  pileLabel.className = 'discard-pile-label';
+  pileLabel.textContent = 'Discard';
+
+  if (gameState.discardPile.length === 0) {
+    pile.classList.add('discard-pile-empty');
+    var emptyCard = document.createElement('div');
+    emptyCard.className = 'discard-pile-card-empty';
+    emptyCard.textContent = 'Empty';
+    pile.appendChild(emptyCard);
+  } else {
+    var last = gameState.discardPile[gameState.discardPile.length - 1];
+    var topCard = document.createElement('div');
+    topCard.className = 'discard-pile-card card-p' + last.playerIndex;
+
+    var tcYear = document.createElement('div');
+    tcYear.className = 'game-card-year';
+    tcYear.textContent = last.song.year || '????';
+    topCard.appendChild(tcYear);
+
+    var tcArtist = document.createElement('div');
+    tcArtist.className = 'game-card-artist';
+    tcArtist.textContent = last.song.artist;
+    topCard.appendChild(tcArtist);
+
+    var tcTitle = document.createElement('div');
+    tcTitle.className = 'game-card-title';
+    tcTitle.textContent = last.song.title;
+    topCard.appendChild(tcTitle);
+
+    // Stack effect: show count
+    if (gameState.discardPile.length > 1) {
+      var countBadge = document.createElement('div');
+      countBadge.className = 'discard-pile-count';
+      countBadge.textContent = gameState.discardPile.length;
+      topCard.appendChild(countBadge);
+    }
+
+    pile.appendChild(topCard);
+  }
+
+  pile.appendChild(pileLabel);
+  body.appendChild(pile);
 }
 
 function createGameCard(cardData, playerIdx) {
@@ -2669,7 +2757,7 @@ function showNextTurnButton(nextPlayerName) {
     gamePlayNext();
   });
 
-  var body = document.getElementById('game-board-body');
+  var body = document.getElementById('game-body');
   if (body) body.appendChild(btn);
 }
 
