@@ -175,6 +175,11 @@ input[type="file"] { display: none; }
   color: var(--accent); font-size: 13px;
 }
 .spotify-badge svg { width: 18px; height: 18px; fill: var(--accent); }
+
+/* Spotify embed player */
+.spotify-embed { width: 100%; border-radius: 12px; margin: 16px 0; }
+.spotify-embed iframe { width: 100%; height: 152px; border-radius: 12px; border: none; }
+.spotify-embed-msg { text-align: center; color: var(--text-dim); font-size: 13px; padding: 12px; }
 </style>
 </head>
 <body>
@@ -196,7 +201,7 @@ input[type="file"] { display: none; }
   <div class="song-count" id="song-count"></div>
   <div class="spotify-badge" id="home-spotify-badge">
     <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-    <span id="home-badge-text">Plays through your Spotify app</span>
+    <span id="home-badge-text">Plays music right here</span>
   </div>
 </div>
 
@@ -216,8 +221,9 @@ input[type="file"] { display: none; }
     <div class="np-listening-icon">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="var(--accent)" opacity="0.8"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
     </div>
-    <div id="np-status-text" style="font-size:18px;font-weight:600;margin:16px 0 6px">Now playing in Spotify</div>
+    <div id="np-status-text" style="font-size:18px;font-weight:600;margin:16px 0 6px">Now playing</div>
     <div id="np-status-sub" style="font-size:14px;color:var(--text-dim)">Listen and guess the song!</div>
+    <div class="spotify-embed" id="np-embed-listening"></div>
   </div>
 
   <!-- Post-reveal: shows full song info -->
@@ -226,6 +232,7 @@ input[type="file"] { display: none; }
     <div class="np-artist" id="np-artist"></div>
     <div class="np-title" id="np-title"></div>
     <div class="np-year" id="np-year"></div>
+    <div class="spotify-embed" id="np-embed-revealed"></div>
   </div>
 
   <div class="np-actions">
@@ -235,7 +242,7 @@ input[type="file"] { display: none; }
     </button>
     <button class="btn btn-outline btn-block btn-sm" id="btn-reopen-spotify" onclick="openCurrentInSpotify()" style="display:none">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-      Re-open in Spotify
+      Open in Spotify
     </button>
     <button class="btn btn-outline btn-block" onclick="playRandom()">Next Song</button>
     <button class="btn btn-outline btn-block btn-sm" onclick="showScreen('home')" style="border-color:#555;color:#999">Back to Home</button>
@@ -339,7 +346,7 @@ input[type="file"] { display: none; }
     <p style="font-size:13px;color:var(--text-dim)">
       HitStar Spotify Edition<br>
       A zero-download companion for the HitStar music quiz game.<br>
-      Songs play through Spotify &mdash; connect for background playback, or use deep links with no setup.<br><br>
+      Songs play right here via embedded Spotify player &mdash; no app needed. Connect for background playback as an optional enhancement.<br><br>
       Built as part of the <a href="https://github.com/Born2Root/HitStar" target="_blank" style="color:var(--accent)">HitStar</a> open source project.
     </p>
   </div>
@@ -579,11 +586,18 @@ function onScanSuccess(decoded) {
   if (song) {
     playSong(song);
   } else {
-    // Unknown QR - try to interpret as Spotify URI or search
+    // Unknown QR - try to interpret as Spotify URI and play via embed
     const spotifyUrl = interpretAsSpotifyLink(decoded);
     if (spotifyUrl) {
-      window.open(spotifyUrl, '_blank');
-      showScreen('home');
+      // Extract track ID from the Spotify URL and play via embed
+      const trackMatch = spotifyUrl.match(/track\/([a-zA-Z0-9]+)/);
+      if (trackMatch) {
+        const unknownSong = { artist: 'Unknown', title: 'Scanned Track', year: null, category: '', spotifyId: trackMatch[1] };
+        playSong(unknownSong);
+      } else {
+        document.getElementById('scanner-status').textContent = 'Unrecognized Spotify link: ' + decoded;
+        setTimeout(() => startScanner(), 2000);
+      }
     } else {
       document.getElementById('scanner-status').textContent = 'Unknown QR code: ' + decoded;
       setTimeout(() => startScanner(), 2000);
@@ -645,6 +659,27 @@ function interpretAsSpotifyLink(text) {
 }
 
 // ==================== PLAYBACK ====================
+
+// Load a Spotify embed iframe into the given container element
+function loadSpotifyEmbed(containerEl, song) {
+  containerEl.innerHTML = '';
+  if (song.spotifyId) {
+    const embedUrl = 'https://open.spotify.com/embed/track/' + song.spotifyId + '?utm_source=generator&theme=0';
+    const iframe = document.createElement('iframe');
+    iframe.src = embedUrl;
+    iframe.style.width = '100%';
+    iframe.style.height = '152px';
+    iframe.style.borderRadius = '12px';
+    iframe.style.border = 'none';
+    iframe.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture');
+    iframe.setAttribute('loading', 'lazy');
+    containerEl.appendChild(iframe);
+  } else {
+    // No spotifyId - show a message instead of opening Spotify app
+    containerEl.innerHTML = '<div class="spotify-embed-msg">No Spotify track ID available for this song.<br>Add one via the Songs tab to enable playback.</div>';
+  }
+}
+
 async function playSong(song) {
   currentSong = song;
 
@@ -661,9 +696,14 @@ async function playSong(song) {
   document.getElementById('btn-reveal').style.display = '';
   document.getElementById('btn-reopen-spotify').style.display = 'none';
 
+  // Load the Spotify embed iframe into the listening container (always shown as primary player)
+  loadSpotifyEmbed(document.getElementById('np-embed-listening'), song);
+  // Pre-load into the revealed container too so it persists after reveal
+  loadSpotifyEmbed(document.getElementById('np-embed-revealed'), song);
+
   showScreen('now-playing');
 
-  // Try background playback first, fall back to opening Spotify
+  // Try background playback as enhancement (for Spotify Premium users)
   if (isPlaybackConnected() && song.spotifyId) {
     const success = await startBackgroundPlayback(song);
     if (success) {
@@ -672,9 +712,8 @@ async function playSong(song) {
       return;
     }
   }
-  document.getElementById('np-status-text').textContent = 'Now playing in Spotify';
+  document.getElementById('np-status-text').textContent = 'Now playing';
   document.getElementById('np-status-sub').textContent = 'Listen and guess the song!';
-  openCurrentInSpotify();
 }
 
 function getSpotifyUrl(song) {
@@ -687,12 +726,18 @@ function getSpotifyUrl(song) {
 
 async function openCurrentInSpotify() {
   if (!currentSong) return;
-  // Try background playback first
+  // Try background playback first (enhancement for Premium users)
   if (isPlaybackConnected() && currentSong.spotifyId) {
     const success = await startBackgroundPlayback(currentSong);
     if (success) return;
   }
-  window.open(getSpotifyUrl(currentSong), '_blank');
+  // Use embed player - reload it in the revealed container
+  if (currentSong.spotifyId) {
+    loadSpotifyEmbed(document.getElementById('np-embed-revealed'), currentSong);
+    return;
+  }
+  // No spotifyId - show message in embed area instead of opening Spotify app
+  loadSpotifyEmbed(document.getElementById('np-embed-revealed'), currentSong);
 }
 
 function revealSong() {
@@ -1021,7 +1066,7 @@ function updatePlaybackStatus() {
     statusEl.textContent = playbackToken ? 'Session expired' : '';
     statusEl.style.color = 'var(--text-dim)';
     btnEl.textContent = 'Connect to Spotify';
-    if (badgeEl) badgeEl.textContent = 'Plays through your Spotify app';
+    if (badgeEl) badgeEl.textContent = 'Plays music right here';
   }
 }
 
