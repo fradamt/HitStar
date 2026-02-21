@@ -159,6 +159,16 @@ input[type="file"] { display: none; }
 .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
 .modal-actions .btn { flex: 1; }
 
+/* Now Playing - listening state */
+.np-listening-icon {
+  margin: 20px 0 10px;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
 /* Spotify badge */
 .spotify-badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -200,25 +210,34 @@ input[type="file"] { display: none; }
 
 <!-- NOW PLAYING SCREEN -->
 <div id="now-playing" class="screen">
-  <div class="np-card">
+  <!-- Pre-reveal: just shows that music is playing -->
+  <div id="np-listening" class="np-card" style="text-align:center">
     <div class="np-category" id="np-category"></div>
-    <div class="np-hidden-info" id="np-info">
-      <div class="np-artist" id="np-artist"></div>
-      <div class="np-title" id="np-title"></div>
-      <div class="np-year" id="np-year"></div>
+    <div class="np-listening-icon">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="var(--accent)" opacity="0.8"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
     </div>
+    <div style="font-size:18px;font-weight:600;margin:16px 0 6px">Now playing in Spotify</div>
+    <div style="font-size:14px;color:var(--text-dim)">Listen and guess the song!</div>
   </div>
-  <div class="reveal-hint" id="reveal-hint">Tap "Reveal" when ready to see the answer</div>
+
+  <!-- Post-reveal: shows full song info -->
+  <div id="np-revealed" class="np-card" style="display:none">
+    <div class="np-category" id="np-category-rev"></div>
+    <div class="np-artist" id="np-artist"></div>
+    <div class="np-title" id="np-title"></div>
+    <div class="np-year" id="np-year"></div>
+  </div>
+
   <div class="np-actions">
-    <button class="btn btn-block" id="btn-open-spotify" onclick="openCurrentInSpotify()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-      Open in Spotify
+    <button class="btn btn-block" id="btn-reveal" onclick="revealSong()" style="font-size:20px;padding:18px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      Reveal Answer
     </button>
-    <button class="btn btn-outline btn-block" id="btn-reveal" onclick="revealSong()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      Reveal
+    <button class="btn btn-outline btn-block btn-sm" id="btn-reopen-spotify" onclick="openCurrentInSpotify()" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      Re-open in Spotify
     </button>
-    <button class="btn btn-outline btn-block" onclick="playRandom()">Next Random</button>
+    <button class="btn btn-outline btn-block" onclick="playRandom()">Next Song</button>
     <button class="btn btn-outline btn-block btn-sm" onclick="showScreen('home')" style="border-color:#555;color:#999">Back to Home</button>
   </div>
 </div>
@@ -296,13 +315,6 @@ input[type="file"] { display: none; }
 
   <div class="setting-group">
     <h3>Game Settings</h3>
-    <div class="setting-row">
-      <label>Auto-reveal after opening Spotify</label>
-      <select id="setting-autoreveal" onchange="saveSetting('autoReveal', this.value)">
-        <option value="no">No</option>
-        <option value="yes">Yes</option>
-      </select>
-    </div>
     <div class="setting-row">
       <label>Active categories for Random mode</label>
       <div class="category-filters" id="settings-categories"></div>
@@ -448,7 +460,6 @@ function loadSettings() {
   try {
     const stored = localStorage.getItem(SETTINGS_KEY);
     if (stored) gameSettings = { ...gameSettings, ...JSON.parse(stored) };
-    document.getElementById('setting-autoreveal').value = gameSettings.autoReveal || 'no';
     document.getElementById('spotify-client-id').value = gameSettings.spotifyClientId || '';
   } catch (e) {}
 }
@@ -614,43 +625,44 @@ function interpretAsSpotifyLink(text) {
 function playSong(song) {
   currentSong = song;
 
+  // Set up the listening (pre-reveal) state
   document.getElementById('np-category').textContent = song.category || 'Unknown';
+  document.getElementById('np-category-rev').textContent = song.category || 'Unknown';
   document.getElementById('np-artist').textContent = song.artist;
   document.getElementById('np-title').textContent = song.title;
   document.getElementById('np-year').textContent = song.year || '????';
 
-  // Hide info initially
-  document.getElementById('np-info').classList.remove('revealed');
-  document.getElementById('reveal-hint').style.display = '';
+  // Show listening state, hide revealed state
+  document.getElementById('np-listening').style.display = '';
+  document.getElementById('np-revealed').style.display = 'none';
   document.getElementById('btn-reveal').style.display = '';
+  document.getElementById('btn-reopen-spotify').style.display = 'none';
 
   showScreen('now-playing');
+
+  // Auto-open in Spotify immediately
+  openCurrentInSpotify();
+}
+
+function getSpotifyUrl(song) {
+  if (song.spotifyId) {
+    return 'https://open.spotify.com/track/' + song.spotifyId;
+  }
+  const query = encodeURIComponent(song.artist + ' ' + song.title);
+  return 'https://open.spotify.com/search/' + query;
 }
 
 function openCurrentInSpotify() {
   if (!currentSong) return;
-
-  let url;
-  if (currentSong.spotifyId) {
-    // Direct link - opens and plays in Spotify app
-    url = 'https://open.spotify.com/track/' + currentSong.spotifyId;
-  } else {
-    // Search fallback - opens Spotify search
-    const query = encodeURIComponent(currentSong.artist + ' ' + currentSong.title);
-    url = 'https://open.spotify.com/search/' + query;
-  }
-
-  window.open(url, '_blank');
-
-  if (gameSettings.autoReveal === 'yes') {
-    setTimeout(revealSong, 500);
-  }
+  window.open(getSpotifyUrl(currentSong), '_blank');
 }
 
 function revealSong() {
-  document.getElementById('np-info').classList.add('revealed');
-  document.getElementById('reveal-hint').style.display = 'none';
+  // Switch from listening state to revealed state
+  document.getElementById('np-listening').style.display = 'none';
+  document.getElementById('np-revealed').style.display = '';
   document.getElementById('btn-reveal').style.display = 'none';
+  document.getElementById('btn-reopen-spotify').style.display = '';
 }
 
 function playRandom() {
