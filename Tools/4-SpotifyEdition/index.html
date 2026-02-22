@@ -1340,6 +1340,9 @@ function initializeSDKPlayer(token) {
     updateSDKStatus('Account error');
   });
   sdkPlayer.addListener('playback_error', function(e) {
+    // Ignore SDK errors when playing on an external device — the SDK player
+    // has no track loaded, which is expected
+    if (externalDeviceId) return;
     showToast('Playback error: ' + e.message, 'error');
     showPlayerError('Playback error - try another track');
   });
@@ -1362,13 +1365,18 @@ function initializeSDKPlayer(token) {
 
   sdkPlayer.addListener('player_state_changed', function(state) {
     if (!state) {
-      // Playback was transferred to another device (Sonos, phone, etc.)
+      // When intentionally on external device, ignore SDK state changes —
+      // the external polling handles everything
+      if (externalDeviceId) return;
+      // Playback was transferred to another device unexpectedly
       sdkIsPlaying = false;
       sdkDeviceLost = true;
       updatePlayPauseButtons();
       stopProgressTracking();
       return;
     }
+    // If using external device, don't let SDK state override polling data
+    if (externalDeviceId) return;
     sdkDeviceLost = false;
     sdkIsPlaying = !state.paused;
     sdkCurrentPosition = state.position;
@@ -1546,24 +1554,27 @@ function resetProgressBars() {
 }
 
 // ==================== EXTERNAL DEVICE POLLING ====================
+function pollExternalState() {
+  if (!externalDeviceId || !sdkToken) return;
+  fetch('https://api.spotify.com/v1/me/player', {
+    headers: { 'Authorization': 'Bearer ' + sdkToken }
+  }).then(function(resp) {
+    if (resp.status === 204) return null; // no active playback
+    return resp.json();
+  }).then(function(data) {
+    if (!data || !externalDeviceId) return;
+    sdkIsPlaying = data.is_playing;
+    sdkCurrentPosition = data.progress_ms || 0;
+    sdkDuration = (data.item && data.item.duration_ms) || 0;
+    updatePlayPauseButtons();
+    updateProgressBars();
+  }).catch(function() {});
+}
+
 function startExternalPolling() {
   stopExternalPolling();
-  externalPollInterval = setInterval(function() {
-    if (!externalDeviceId || !sdkToken) return;
-    fetch('https://api.spotify.com/v1/me/player', {
-      headers: { 'Authorization': 'Bearer ' + sdkToken }
-    }).then(function(resp) {
-      if (resp.status === 204) return null; // no active playback
-      return resp.json();
-    }).then(function(data) {
-      if (!data) return;
-      sdkIsPlaying = data.is_playing;
-      sdkCurrentPosition = data.progress_ms || 0;
-      sdkDuration = (data.item && data.item.duration_ms) || 0;
-      updatePlayPauseButtons();
-      updateProgressBars();
-    }).catch(function() {});
-  }, 1000);
+  pollExternalState(); // immediate first poll so duration/position are available right away
+  externalPollInterval = setInterval(pollExternalState, 1000);
 }
 
 function stopExternalPolling() {
@@ -1652,12 +1663,26 @@ function selectDevice(deviceId, name) {
   if (gameLabel) gameLabel.textContent = deviceId ? name : '';
 
   if (deviceId) {
+    // Transfer playback to the selected external device
+    if (sdkToken) {
+      fetch('https://api.spotify.com/v1/me/player', {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + sdkToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ device_ids: [deviceId], play: sdkIsPlaying })
+      }).catch(function() {});
+    }
     // External device: poll for state, stop SDK progress tracking
     stopProgressTracking();
     startExternalPolling();
   } else {
-    // Back to SDK player: stop polling, SDK events handle state
+    // Back to SDK player: stop polling, transfer playback back
     stopExternalPolling();
+    if (sdkDeviceId && sdkToken) {
+      transferToHitStar();
+    }
   }
 }
 
@@ -3053,6 +3078,9 @@ function computeCardSize() {
 }
 
 function renderGameBoard() {
+  // Don't re-render while victory overlay is showing — prevents race conditions
+  // with resize events and async animation code corrupting the board
+  if (gameState.phase === 'done') return;
   var body = document.getElementById('game-body');
   body.textContent = '';
   // Remove previous piles sidebar if any
@@ -3209,6 +3237,7 @@ function renderGameBoard() {
   if (gameState.phase === 'waiting') {
     deckCard.classList.add('deck-next-turn');
     deckCard.addEventListener('click', function() {
+      if (gameState.phase !== 'waiting') return; // prevent double-click race
       gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.players.length;
       gamePlayNext();
     });
