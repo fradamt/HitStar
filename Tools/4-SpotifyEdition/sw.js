@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hitstar-spotify-v39';
+const CACHE_NAME = 'hitstar-spotify-v40';
 const ASSETS = [
   'index.html',
   'manifest.json',

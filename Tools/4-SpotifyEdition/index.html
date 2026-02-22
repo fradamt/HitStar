@@ -1303,13 +1303,24 @@ async function loadBuiltinPlaylist() {
 async function ensureUserId() {
   if (spotifyUserId) return;
   if (!isTokenValid()) return;
-  try {
-    var resp = await spotifyFetch('https://api.spotify.com/v1/me');
-    if (resp && resp.ok) {
-      var me = await resp.json();
-      spotifyUserId = me.id;
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try {
+      var resp = await spotifyFetch('https://api.spotify.com/v1/me');
+      if (resp && resp.ok) {
+        var me = await resp.json();
+        spotifyUserId = me.id;
+        return;
+      }
+      if (resp && resp.status === 429) {
+        var retryAfter = parseInt(resp.headers.get('Retry-After') || '2');
+        await new Promise(function(r) { setTimeout(r, retryAfter * 1000); });
+        continue;
+      }
+      return; // non-retryable error
+    } catch (e) {
+      await new Promise(function(r) { setTimeout(r, 1000); });
     }
-  } catch (e) {}
+  }
 }
 
 async function fetchMyPlaylists(offset) {
@@ -1323,10 +1334,8 @@ async function fetchMyPlaylists(offset) {
     return {
       items: data.items.filter(Boolean).filter(function(p) {
         // Only show playlists the user owns or collaborates on (Spotify API restriction)
-        // If we couldn't fetch user ID, show all rather than none
-        if (!spotifyUserId) return true;
         if (p.collaborative) return true;
-        return p.owner && p.owner.id === spotifyUserId;
+        return spotifyUserId && p.owner && p.owner.id === spotifyUserId;
       }).map(function(p) {
         return {
           id: p.id,
