@@ -68,7 +68,6 @@ h2 { font-size: 18px; margin-bottom: 10px; color: var(--text-dim); }
 #home .subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 20px; }
 .home-actions { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 300px; }
 .home-actions .btn { font-size: 18px; padding: 18px; }
-.song-count { color: var(--text-dim); font-size: 13px; margin-top: 8px; }
 
 /* Connect prompt on home */
 .connect-prompt {
@@ -129,43 +128,8 @@ h2 { font-size: 18px; margin-bottom: 10px; color: var(--text-dim); }
   color: var(--danger); font-size: 12px; margin-top: 4px; min-height: 16px;
 }
 
-/* Session playlist indicator */
-.session-playlist-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--surface2); border-radius: 12px; padding: 4px 12px;
-  font-size: 12px; color: var(--accent); margin-top: 4px;
-}
-.session-playlist-badge button {
-  background: none; border: none; color: var(--danger); cursor: pointer;
-  font-size: 14px; padding: 0 2px; line-height: 1;
-}
-
-/* SONGS MANAGER */
-#songs { gap: 14px; }
-.songs-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-.category-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-.cat-chip {
-  background: var(--surface2); border: 1px solid #444; border-radius: 14px;
-  padding: 6px 14px; font-size: 13px; color: var(--text-dim); cursor: pointer;
-}
-.cat-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
-.song-list { display: flex; flex-direction: column; gap: 6px; }
-.song-item {
-  background: var(--surface); border-radius: 10px; padding: 12px 14px;
-  display: flex; justify-content: space-between; align-items: center;
-}
-.song-item-info { flex: 1; min-width: 0; }
-.song-item-info .artist { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.song-item-info .title { font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.song-item-info .meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-.song-item-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: 8px; }
-.icon-btn {
-  background: var(--surface2); border: none; color: var(--text-dim);
-  width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; font-size: 16px;
-}
-.icon-btn:hover { color: var(--text); }
-.song-empty { text-align: center; color: var(--text-dim); padding: 40px 20px; }
+/* PLAYLISTS */
+#playlists { gap: 14px; }
 
 /* SETTINGS */
 #settings { gap: 16px; }
@@ -179,7 +143,6 @@ textarea, input[type="text"], input[type="number"], select {
   font-family: inherit;
 }
 textarea { min-height: 120px; resize: vertical; }
-.import-export { display: flex; gap: 10px; margin-top: 10px; }
 input[type="file"] { display: none; }
 
 /* MODAL */
@@ -922,8 +885,6 @@ input[type="file"] { display: none; }
     </button>
   </div>
   <button class="home-rules-btn" onclick="showRulesModal()">How to Play</button>
-  <div class="song-count" id="song-count"></div>
-  <div id="session-playlist-indicator"></div>
   <div class="spotify-badge" id="home-spotify-badge">
     <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
     <span id="home-badge-text">Connect Spotify to play</span>
@@ -984,14 +945,10 @@ input[type="file"] { display: none; }
   </div>
 </div>
 
-<!-- SONGS SCREEN -->
-<div id="songs" class="screen">
-  <div class="songs-header">
-    <h1>Song Library</h1>
-    <button class="btn btn-sm" onclick="showAddSongModal()">+ Add</button>
-  </div>
-  <div class="category-filters" id="category-filters"></div>
-  <div class="song-list" id="song-list"></div>
+<!-- PLAYLISTS SCREEN -->
+<div id="playlists" class="screen">
+  <h1>Playlists</h1>
+  <div id="playlist-browser"></div>
 </div>
 
 <!-- SETTINGS SCREEN -->
@@ -1014,69 +971,6 @@ input[type="file"] { display: none; }
   </div>
 
   <div class="setting-group">
-    <h3>Import / Export Songs</h3>
-    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
-      Import a JSON song database or export your current one.
-    </p>
-    <div class="import-export">
-      <button class="btn btn-sm btn-outline" onclick="document.getElementById('import-file').click()">Import JSON</button>
-      <input type="file" id="import-file" accept=".json" onchange="importSongs(this)">
-      <button class="btn btn-sm btn-outline" onclick="exportSongs()">Export JSON</button>
-    </div>
-  </div>
-
-  <div class="setting-group">
-    <h3>Import from Spotify Playlist</h3>
-    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
-      Import songs directly from a Spotify playlist. Paste a playlist URL or URI.
-    </p>
-    <input type="text" id="playlist-url" placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..." style="margin-bottom:8px">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-sm" onclick="importFromPlaylist()">Import to Library</button>
-      <button class="btn btn-sm btn-outline" onclick="usePlaylistAsSource()">Use as Game Source</button>
-    </div>
-    <div style="margin-top:8px">
-      <label style="font-size:13px;color:var(--text-dim)">
-        <input type="checkbox" id="playlist-category-auto" checked> Use playlist name as category
-      </label>
-    </div>
-    <input type="text" id="playlist-category-manual" placeholder="Or enter category manually..." style="margin-top:8px;display:none">
-    <div id="playlist-status" style="font-size:13px;color:var(--text-dim);margin-top:8px"></div>
-    <div style="font-size:12px;color:var(--text-dim);margin-top:10px;border-top:1px solid #333;padding-top:10px">
-      <strong>Original Hitster playlists:</strong><br>
-      <a href="https://open.spotify.com/user/ta8hnikdhdctwuvkj2nl9itix/playlists" target="_blank" style="color:var(--accent)">open.spotify.com/user/ta8hnikdhdctwuvkj2nl9itix/playlists</a>
-    </div>
-  </div>
-
-  <div class="setting-group">
-    <h3>Import from CSV / Text</h3>
-    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
-      Paste lines in the format: <code>Category\Artist - Title|Year|SpotifyID</code><br>
-      Year and SpotifyID are optional. SpotifyID is the Spotify track ID (the part after <code>track/</code> in a Spotify URL).
-    </p>
-    <textarea id="csv-input" placeholder="Summer\SNAP! - The Power|1990|1pFMpMlSTEHN2MwBgJwkr8&#10;Rock\Queen - Bohemian Rhapsody|1975|7tFiyTwD0nx5a1eklYtX2J&#10;Basis\Alicia Keys - No One|2007"></textarea>
-    <button class="btn btn-sm" style="margin-top:8px" onclick="importFromText()">Import Lines</button>
-  </div>
-
-  <div class="setting-group">
-    <h3>Spotify Track Lookup</h3>
-    <p style="font-size:13px;color:var(--text-dim);margin-bottom:10px">
-      Songs without a Spotify Track ID cannot be played via the SDK.
-      Use this to automatically look up track IDs for all songs missing them.
-    </p>
-    <button class="btn btn-sm btn-outline" onclick="spotifyLookupAll()">Look Up Missing Track IDs</button>
-    <div id="lookup-status" style="font-size:13px;color:var(--text-dim);margin-top:8px"></div>
-  </div>
-
-  <div class="setting-group">
-    <h3>Game Settings</h3>
-    <div class="setting-row">
-      <label>Active categories for Random mode</label>
-      <div class="category-filters" id="settings-categories"></div>
-    </div>
-  </div>
-
-  <div class="setting-group">
     <h3>About</h3>
     <p style="font-size:13px;color:var(--text-dim)">
       HitStar Spotify Edition<br>
@@ -1084,41 +978,6 @@ input[type="file"] { display: none; }
       Songs play right here via Spotify Web Playback SDK &mdash; Premium account required.<br><br>
       Built as part of the <a href="https://github.com/Born2Root/HitStar" target="_blank" style="color:var(--accent)">HitStar</a> open source project.
     </p>
-  </div>
-</div>
-
-<!-- ADD/EDIT SONG MODAL -->
-<div class="modal-overlay hidden" id="song-modal">
-  <div class="modal">
-    <h2 id="modal-title">Add Song</h2>
-    <div class="form-group">
-      <label>Artist *</label>
-      <input type="text" id="song-artist" placeholder="e.g. Queen">
-    </div>
-    <div class="form-group">
-      <label>Title *</label>
-      <input type="text" id="song-title" placeholder="e.g. Bohemian Rhapsody">
-    </div>
-    <div class="form-group">
-      <label>Year *</label>
-      <input type="number" id="song-year" placeholder="e.g. 1975" min="1900" max="2030">
-    </div>
-    <div class="form-group">
-      <label>Category</label>
-      <input type="text" id="song-category" placeholder="e.g. Rock, Summer, Basis" list="categories-datalist">
-      <datalist id="categories-datalist"></datalist>
-    </div>
-    <div class="form-group">
-      <label>Spotify Track ID (optional)</label>
-      <input type="text" id="song-spotify" placeholder="e.g. 7tFiyTwD0nx5a1eklYtX2J">
-      <div style="font-size:11px;color:var(--text-dim);margin-top:4px">
-        Find this in Spotify: Share &rarr; Copy Link &rarr; the ID is after /track/
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeSongModal()">Cancel</button>
-      <button class="btn" id="modal-save-btn" onclick="saveSong()">Add Song</button>
-    </div>
   </div>
 </div>
 
@@ -1244,9 +1103,9 @@ input[type="file"] { display: none; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
     Home
   </button>
-  <button onclick="showScreen('songs')" id="nav-songs">
+  <button onclick="showScreen('playlists')" id="nav-playlists">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13M9 18c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3zM21 16c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z"/></svg>
-    Songs
+    Playlists
   </button>
   <button onclick="showScreen('settings')" id="nav-settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -1259,10 +1118,7 @@ input[type="file"] { display: none; }
 
 <script>
 // ==================== STATE ====================
-var songs = [];
 var currentSong = null;
-var editingIndex = -1;
-var activeCategoryFilter = 'all';
 var SPOTIFY_CLIENT_ID = '487c104a2e1745778856e769dec3c079';
 var gameSettings = { autoReveal: 'no', activeCategories: [], spotifyClientId: SPOTIFY_CLIENT_ID };
 var spotifyToken = null;
@@ -1939,11 +1795,7 @@ function closeDevicePicker() {
 
 // ==================== INIT ====================
 function init() {
-  loadSongs();
   loadSettings();
-  updateSongCount();
-  renderSongList();
-  renderCategoryFilters();
 
   // Restore SDK token and refresh token from storage
   var storedToken = localStorage.getItem(SDK_TOKEN_KEY);
@@ -1989,24 +1841,10 @@ function init() {
     applyToken(htoken, hexpiresIn, pendingAction);
   }
 
-  // Toggle manual category input visibility
-  var autoCheck = document.getElementById('playlist-category-auto');
-  if (autoCheck) {
-    autoCheck.addEventListener('change', function() {
-      document.getElementById('playlist-category-manual').style.display = autoCheck.checked ? 'none' : 'block';
-    });
-  }
-
-  // Load example songs if empty
-  if (songs.length === 0) {
-    loadExampleSongs();
-  }
-
   // Ensure hardcoded client ID is always set
   gameSettings.spotifyClientId = SPOTIFY_CLIENT_ID;
 
   updateHomeConnectUI();
-  updateSessionPlaylistIndicator();
 
   // Check for saved game to resume (only on homepage, not during a game)
   if (!gameState.active) {
@@ -2045,42 +1883,13 @@ function applyToken(token, expiresIn, action) {
     initializeSDKPlayer();
   }
 
-  if (action === 'playlist' || action === 'playlist-source') {
-    spotifyToken = token;
-    if (action === 'playlist-source') {
-      importPlaylistAsSource();
-    } else {
-      importPlaylistWithToken();
-    }
-  } else if (action === 'lookup') {
+  if (action === 'lookup') {
     spotifyToken = token;
     spotifyLookupWithToken();
   }
 }
 
-// ==================== SONGS DATA ====================
-function loadSongs() {
-  var stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return;
-  try {
-    var parsed = JSON.parse(stored);
-    if (Array.isArray(parsed)) {
-      songs = parsed;
-    } else {
-      showToast('Song library format invalid — starting fresh', 'error', 5000);
-    }
-  } catch (e) {
-    // Backup corrupted data before discarding
-    try { localStorage.setItem(STORAGE_KEY + '_backup', stored); } catch (ignore) {}
-    showToast('Song library corrupted — backup saved. Re-import your songs.', 'error', 6000);
-  }
-}
-
-function saveSongsToStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
-  updateSongCount();
-}
-
+// ==================== SETTINGS DATA ====================
 function loadSettings() {
   try {
     var stored = localStorage.getItem(SETTINGS_KEY);
@@ -2100,49 +1909,6 @@ function saveSetting(key, value) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(gameSettings));
 }
 
-function updateSongCount() {
-  var cats = getCategories();
-  var catStr = cats.length > 0 ? ' in ' + cats.length + ' categories' : '';
-  var source = sessionPlaylist ? ' (Session: ' + sessionPlaylist.name + ')' : '';
-  document.getElementById('song-count').textContent = songs.length + ' songs loaded' + catStr + source;
-}
-
-function getCategories() {
-  var cats = new Set();
-  songs.forEach(function(s) { if (s.category) cats.add(s.category); });
-  return Array.from(cats).sort();
-}
-
-function getActiveCategories() {
-  if (!gameSettings.activeCategories || gameSettings.activeCategories.length === 0) return getCategories();
-  return gameSettings.activeCategories;
-}
-
-function pruneStaleCategories() {
-  if (!gameSettings.activeCategories || gameSettings.activeCategories.length === 0) return;
-  var currentCats = getCategories();
-  var pruned = gameSettings.activeCategories.filter(function(c) { return currentCats.indexOf(c) !== -1; });
-  if (pruned.length !== gameSettings.activeCategories.length) {
-    gameSettings.activeCategories = pruned;
-    saveSetting('activeCategories', pruned);
-  }
-}
-
-async function loadExampleSongs() {
-  try {
-    var resp = await fetch('songs-example.json');
-    if (resp.ok) {
-      var data = await resp.json();
-      if (!Array.isArray(data)) return;
-      songs = data;
-      saveSongsToStorage();
-      pruneStaleCategories();
-      renderSongList();
-      renderCategoryFilters();
-    }
-  } catch (e) {}
-}
-
 // ==================== NAVIGATION ====================
 function showScreen(id) {
   // If navigating away from the game board while a game is active, end it cleanly
@@ -2155,8 +1921,6 @@ function showScreen(id) {
   var navBtn = document.getElementById('nav-' + id);
   if (navBtn) navBtn.classList.add('active');
 
-  if (id === 'songs') { renderSongList(); renderCategoryFilters(); }
-  if (id === 'settings') renderSettingsCategories();
 }
 
 // ==================== PLAYBACK ====================
@@ -2230,11 +1994,6 @@ async function searchSpotifyId(song) {
       // Grab album art (prefer 300px, fall back to largest)
       if (track.album && track.album.images && track.album.images.length > 0) {
         song.albumArt = (track.album.images[1] || track.album.images[0]).url;
-      }
-      var idx = songs.indexOf(song);
-      if (idx >= 0) {
-        songs[idx].spotifyId = newId;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
       }
       return newId;
     }
@@ -2359,471 +2118,14 @@ function revealSong() {
 }
 
 function playRandom() {
-  var pool;
-  if (sessionPlaylist && sessionPlaylist.tracks.length > 0) {
-    pool = sessionPlaylist.tracks;
-  } else {
-    if (songs.length === 0) {
-      alert('No songs loaded! Add songs in the Songs tab or import a song database in Settings.');
-      return;
-    }
-    var activeCats = getActiveCategories();
-    pool = activeCats.length > 0
-      ? songs.filter(function(s) { return activeCats.includes(s.category); })
-      : songs;
-  }
-
-  if (pool.length === 0) {
-    alert('No songs in the selected categories.');
+  if (!sessionPlaylist || sessionPlaylist.tracks.length === 0) {
+    alert('No playlist selected! Choose a playlist in the Playlists tab first.');
     return;
   }
 
+  var pool = sessionPlaylist.tracks;
   var idx = Math.floor(Math.random() * pool.length);
   playSong(pool[idx]);
-}
-
-// ==================== SESSION PLAYLIST ====================
-function usePlaylistAsSource() {
-  var urlInput = document.getElementById('playlist-url').value.trim();
-  if (!urlInput) { alert('Please paste a Spotify playlist URL or URI.'); return; }
-
-  var playlistId = null;
-  var urlMatch = urlInput.match(/playlist[/:]([a-zA-Z0-9]+)/);
-  if (urlMatch) playlistId = urlMatch[1];
-  if (!playlistId) { alert('Could not find a playlist ID in that URL.'); return; }
-
-  localStorage.setItem('hitstar_pending_playlist', playlistId);
-  var autoCategory = document.getElementById('playlist-category-auto').checked;
-  var manualCategory = document.getElementById('playlist-category-manual').value.trim();
-  localStorage.setItem('hitstar_pending_playlist_category', autoCategory ? '__auto__' : manualCategory);
-
-  requireSpotifyAuth('playlist-source');
-}
-
-async function importPlaylistAsSource() {
-  if (!spotifyToken) return;
-
-  var playlistId = localStorage.getItem('hitstar_pending_playlist');
-  var categoryPref = localStorage.getItem('hitstar_pending_playlist_category') || '__auto__';
-  localStorage.removeItem('hitstar_pending_playlist');
-  localStorage.removeItem('hitstar_pending_playlist_category');
-
-  if (!playlistId) { alert('No playlist ID found. Please try again.'); return; }
-
-  var statusEl = document.getElementById('playlist-status');
-  statusEl.textContent = 'Fetching playlist for game source...';
-  showScreen('settings');
-
-  try {
-    var plResp = await fetch('https://api.spotify.com/v1/playlists/' + playlistId + '?fields=name,tracks.total', {
-      headers: { 'Authorization': 'Bearer ' + spotifyToken }
-    });
-    if (!plResp.ok) { statusEl.textContent = 'Error fetching playlist: ' + plResp.status; return; }
-    var plData = await plResp.json();
-    var category = categoryPref === '__auto__' ? plData.name : (categoryPref || plData.name);
-    var totalTracks = plData.tracks.total;
-    statusEl.textContent = 'Loading "' + plData.name + '" as game source (' + totalTracks + ' tracks)...';
-
-    var tracks = [];
-    var offset = 0;
-    var limit = 100;
-
-    while (offset < totalTracks) {
-      var tracksResp = await fetch(
-        'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks?offset=' + offset + '&limit=' + limit + '&fields=items(track(id,name,artists(name),album(release_date)))',
-        { headers: { 'Authorization': 'Bearer ' + spotifyToken } }
-      );
-
-      if (tracksResp.status === 429) {
-        var retry = parseInt(tracksResp.headers.get('Retry-After') || '2');
-        await new Promise(function(r) { setTimeout(r, retry * 1000); });
-        continue;
-      }
-
-      if (!tracksResp.ok) { statusEl.textContent = 'Error fetching tracks: ' + tracksResp.status; break; }
-
-      var tracksData = await tracksResp.json();
-      for (var i = 0; i < tracksData.items.length; i++) {
-        var item = tracksData.items[i];
-        var track = item.track;
-        if (!track || !track.id) continue;
-
-        var artist = track.artists.map(function(a) { return a.name; }).join(', ');
-        var title = track.name;
-        var year = track.album && track.album.release_date
-          ? parseInt(track.album.release_date.substring(0, 4)) || null
-          : null;
-
-        tracks.push({
-          artist: artist,
-          title: title,
-          year: year,
-          category: category,
-          spotifyId: track.id,
-          qrCode: category + '/' + artist + ' - ' + title
-        });
-      }
-
-      offset += limit;
-      statusEl.textContent = 'Loading "' + plData.name + '"... ' + tracks.length + '/' + totalTracks;
-      await new Promise(function(r) { setTimeout(r, 50); });
-    }
-
-    sessionPlaylist = { name: plData.name, tracks: tracks };
-    updateSessionPlaylistIndicator();
-    updateSongCount();
-    statusEl.textContent = 'Game source set to "' + plData.name + '" (' + tracks.length + ' tracks). Random Song will pick from this playlist.';
-    showToast('Session playlist active: ' + plData.name, 'success', 3000);
-  } catch (e) {
-    statusEl.textContent = 'Error: ' + e.message;
-  }
-  spotifyToken = null;
-}
-
-function clearSessionPlaylist() {
-  sessionPlaylist = null;
-  updateSessionPlaylistIndicator();
-  updateSongCount();
-  showToast('Session playlist cleared. Using song library.', 'success', 3000);
-}
-
-function updateSessionPlaylistIndicator() {
-  var container = document.getElementById('session-playlist-indicator');
-  if (!container) return;
-  if (sessionPlaylist) {
-    // Build indicator using DOM methods to avoid innerHTML with dynamic content
-    container.textContent = '';
-    var badge = document.createElement('div');
-    badge.className = 'session-playlist-badge';
-    var label = document.createTextNode('Session: ' + sessionPlaylist.name + ' (' + sessionPlaylist.tracks.length + ' tracks)');
-    badge.appendChild(label);
-    var closeBtn = document.createElement('button');
-    closeBtn.setAttribute('onclick', 'clearSessionPlaylist()');
-    closeBtn.setAttribute('title', 'Clear session playlist');
-    closeBtn.textContent = '\u2715';
-    badge.appendChild(closeBtn);
-    container.appendChild(badge);
-  } else {
-    container.textContent = '';
-  }
-}
-
-// ==================== SONG LIST UI ====================
-function renderCategoryFilters() {
-  var cats = getCategories();
-  var container = document.getElementById('category-filters');
-  container.textContent = '';
-
-  var allChip = document.createElement('span');
-  allChip.className = 'cat-chip' + (activeCategoryFilter === 'all' ? ' active' : '');
-  allChip.textContent = 'All (' + songs.length + ')';
-  allChip.onclick = function() { activeCategoryFilter = 'all'; renderCategoryFilters(); renderSongList(); };
-  container.appendChild(allChip);
-
-  cats.forEach(function(cat) {
-    var count = songs.filter(function(s) { return s.category === cat; }).length;
-    var chip = document.createElement('span');
-    chip.className = 'cat-chip' + (activeCategoryFilter === cat ? ' active' : '');
-    chip.textContent = cat + ' (' + count + ')';
-    chip.onclick = function() { activeCategoryFilter = cat; renderCategoryFilters(); renderSongList(); };
-    container.appendChild(chip);
-  });
-
-  var dl = document.getElementById('categories-datalist');
-  dl.textContent = '';
-  cats.forEach(function(c) { var o = document.createElement('option'); o.value = c; dl.appendChild(o); });
-}
-
-function renderSettingsCategories() {
-  var cats = getCategories();
-  var container = document.getElementById('settings-categories');
-  container.textContent = '';
-  var active = gameSettings.activeCategories || [];
-
-  cats.forEach(function(cat) {
-    var chip = document.createElement('span');
-    chip.className = 'cat-chip' + (active.length === 0 || active.includes(cat) ? ' active' : '');
-    chip.textContent = cat;
-    chip.onclick = function() {
-      if (active.length === 0) {
-        gameSettings.activeCategories = [cat];
-      } else if (active.includes(cat)) {
-        gameSettings.activeCategories = active.filter(function(c) { return c !== cat; });
-        if (gameSettings.activeCategories.length === 0) gameSettings.activeCategories = [];
-      } else {
-        gameSettings.activeCategories.push(cat);
-      }
-      saveSetting('activeCategories', gameSettings.activeCategories);
-      renderSettingsCategories();
-    };
-    container.appendChild(chip);
-  });
-}
-
-function renderSongList() {
-  var container = document.getElementById('song-list');
-  var filtered = activeCategoryFilter === 'all' ? songs : songs.filter(function(s) { return s.category === activeCategoryFilter; });
-
-  if (filtered.length === 0) {
-    container.textContent = '';
-    var empty = document.createElement('div');
-    empty.className = 'song-empty';
-    empty.textContent = songs.length === 0 ? 'No songs yet. Add songs manually or import a database in Settings.' : 'No songs in this category.';
-    container.appendChild(empty);
-    return;
-  }
-
-  filtered.sort(function(a, b) { return (a.year || 0) - (b.year || 0); });
-
-  // Build song list using DOM methods
-  container.textContent = '';
-  filtered.forEach(function(s) {
-    var realIdx = songs.indexOf(s);
-
-    var item = document.createElement('div');
-    item.className = 'song-item';
-
-    var info = document.createElement('div');
-    info.className = 'song-item-info';
-
-    var artistDiv = document.createElement('div');
-    artistDiv.className = 'artist';
-    artistDiv.textContent = s.artist;
-    info.appendChild(artistDiv);
-
-    var titleDiv = document.createElement('div');
-    titleDiv.className = 'title';
-    titleDiv.textContent = s.title;
-    info.appendChild(titleDiv);
-
-    var metaDiv = document.createElement('div');
-    metaDiv.className = 'meta';
-    var spotifyDot = document.createElement('span');
-    spotifyDot.style.color = s.spotifyId ? 'var(--accent)' : '#666';
-    spotifyDot.textContent = s.spotifyId ? '\u25CF' : '\u25CB';
-    metaDiv.appendChild(document.createTextNode((s.year || '?') + ' \u00B7 ' + (s.category || '?') + ' \u00B7 '));
-    metaDiv.appendChild(spotifyDot);
-    metaDiv.appendChild(document.createTextNode(' Spotify'));
-    info.appendChild(metaDiv);
-
-    item.appendChild(info);
-
-    var actions = document.createElement('div');
-    actions.className = 'song-item-actions';
-
-    var playBtn = document.createElement('button');
-    playBtn.className = 'icon-btn';
-    playBtn.title = 'Play';
-    playBtn.textContent = '\u25B6';
-    playBtn.setAttribute('data-idx', realIdx);
-    playBtn.onclick = function() { playSong(songs[parseInt(this.getAttribute('data-idx'))]); };
-    actions.appendChild(playBtn);
-
-    var editBtn = document.createElement('button');
-    editBtn.className = 'icon-btn';
-    editBtn.title = 'Edit';
-    editBtn.textContent = '\u270E';
-    editBtn.setAttribute('data-idx', realIdx);
-    editBtn.onclick = function() { showEditSongModal(parseInt(this.getAttribute('data-idx'))); };
-    actions.appendChild(editBtn);
-
-    var delBtn = document.createElement('button');
-    delBtn.className = 'icon-btn';
-    delBtn.title = 'Delete';
-    delBtn.style.color = 'var(--danger)';
-    delBtn.textContent = '\u2715';
-    delBtn.setAttribute('data-idx', realIdx);
-    delBtn.onclick = function() { deleteSong(parseInt(this.getAttribute('data-idx'))); };
-    actions.appendChild(delBtn);
-
-    item.appendChild(actions);
-    container.appendChild(item);
-  });
-}
-
-function esc(s) {
-  if (!s) return '';
-  var d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-// ==================== SONG CRUD ====================
-function showAddSongModal() {
-  editingIndex = -1;
-  document.getElementById('modal-title').textContent = 'Add Song';
-  document.getElementById('modal-save-btn').textContent = 'Add Song';
-  document.getElementById('song-artist').value = '';
-  document.getElementById('song-title').value = '';
-  document.getElementById('song-year').value = '';
-  document.getElementById('song-category').value = '';
-  document.getElementById('song-spotify').value = '';
-  document.getElementById('song-modal').classList.remove('hidden');
-}
-
-function showEditSongModal(idx) {
-  editingIndex = idx;
-  var s = songs[idx];
-  document.getElementById('modal-title').textContent = 'Edit Song';
-  document.getElementById('modal-save-btn').textContent = 'Save';
-  document.getElementById('song-artist').value = s.artist || '';
-  document.getElementById('song-title').value = s.title || '';
-  document.getElementById('song-year').value = s.year || '';
-  document.getElementById('song-category').value = s.category || '';
-  document.getElementById('song-spotify').value = s.spotifyId || '';
-  document.getElementById('song-modal').classList.remove('hidden');
-}
-
-function closeSongModal() {
-  document.getElementById('song-modal').classList.add('hidden');
-}
-
-function saveSong() {
-  var artist = document.getElementById('song-artist').value.trim();
-  var title = document.getElementById('song-title').value.trim();
-  var year = parseInt(document.getElementById('song-year').value) || null;
-  var category = document.getElementById('song-category').value.trim();
-  var spotifyId = document.getElementById('song-spotify').value.trim();
-
-  if (!artist || !title) { alert('Artist and Title are required.'); return; }
-
-  var urlMatch = spotifyId.match(/track\/([a-zA-Z0-9]+)/);
-  if (urlMatch) spotifyId = urlMatch[1];
-  var uriMatch = spotifyId.match(/spotify:track:([a-zA-Z0-9]+)/);
-  if (uriMatch) spotifyId = uriMatch[1];
-
-  var qrCode = category ? category + '/' + artist + ' - ' + title : artist + ' - ' + title;
-
-  var song = { artist: artist, title: title, year: year, category: category, spotifyId: spotifyId || null, qrCode: qrCode };
-
-  if (editingIndex >= 0) {
-    songs[editingIndex] = song;
-  } else {
-    songs.push(song);
-  }
-
-  saveSongsToStorage();
-  closeSongModal();
-  renderSongList();
-  renderCategoryFilters();
-}
-
-function deleteSong(idx) {
-  if (confirm('Delete "' + songs[idx].artist + ' - ' + songs[idx].title + '"?')) {
-    songs.splice(idx, 1);
-    saveSongsToStorage();
-    renderSongList();
-    renderCategoryFilters();
-  }
-}
-
-// ==================== IMPORT / EXPORT ====================
-function importSongs(input) {
-  var file = input.files[0];
-  if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      var data = JSON.parse(e.target.result);
-      if (Array.isArray(data)) {
-        var valid = data.filter(function(entry) {
-          return entry && typeof entry.artist === 'string' && entry.artist.trim() &&
-                 typeof entry.title === 'string' && entry.title.trim();
-        });
-        var skipped = data.length - valid.length;
-        if (valid.length === 0) {
-          alert('No valid songs found. Each entry needs at least "artist" and "title" strings.');
-          return;
-        }
-        if (songs.length > 0 && !confirm('Replace ' + songs.length + ' existing songs with ' + valid.length + ' imported songs?')) return;
-        songs = valid;
-        saveSongsToStorage();
-        pruneStaleCategories();
-        renderSongList();
-        renderCategoryFilters();
-        alert('Imported ' + valid.length + ' songs!' + (skipped > 0 ? ' (' + skipped + ' invalid entries skipped)' : ''));
-      } else {
-        alert('Invalid format: expected a JSON array.');
-      }
-    } catch (err) {
-      alert('Error parsing JSON: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
-  input.value = '';
-}
-
-function exportSongs() {
-  var blob = new Blob([JSON.stringify(songs, null, 2)], { type: 'application/json' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'hitstar-songs.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importFromText() {
-  var text = document.getElementById('csv-input').value.trim();
-  if (!text) return;
-
-  var lines = text.split('\n').filter(function(l) { return l.trim(); });
-  var added = 0;
-  var duplicates = 0;
-  var malformed = 0;
-
-  lines.forEach(function(line) {
-    line = line.trim();
-    var pipes = line.split('|');
-    var pathPart = pipes[0].trim();
-    var year = pipes[1] ? parseInt(pipes[1].trim()) || null : null;
-    var spotifyId = pipes[2] ? pipes[2].trim() : null;
-
-    if (spotifyId) {
-      var m = spotifyId.match(/track\/([a-zA-Z0-9]+)/);
-      if (m) spotifyId = m[1];
-    }
-
-    var normalized = pathPart.replace(/\\/g, '/').replace(/\.(mp3|flac|ogg|wav|m4a)$/i, '');
-    var slashIdx = normalized.indexOf('/');
-
-    var category = '', artistTitle = '';
-    if (slashIdx > 0) {
-      category = normalized.substring(0, slashIdx).trim();
-      artistTitle = normalized.substring(slashIdx + 1).trim();
-    } else {
-      artistTitle = normalized;
-    }
-
-    var dashIdx = artistTitle.indexOf(' - ');
-    if (dashIdx > 0) {
-      var artist = artistTitle.substring(0, dashIdx).trim();
-      var title = artistTitle.substring(dashIdx + 3).trim();
-      var qrCode = category ? category + '/' + artist + ' - ' + title : artist + ' - ' + title;
-
-      var exists = songs.some(function(s) {
-        return s.artist.toLowerCase() === artist.toLowerCase() &&
-          s.title.toLowerCase() === title.toLowerCase();
-      });
-      if (!exists) {
-        songs.push({ artist: artist, title: title, year: year, category: category, spotifyId: spotifyId, qrCode: qrCode });
-        added++;
-      } else {
-        duplicates++;
-      }
-    } else {
-      malformed++;
-    }
-  });
-
-  saveSongsToStorage();
-  renderSongList();
-  renderCategoryFilters();
-  document.getElementById('csv-input').value = '';
-  var msg = 'Imported ' + added + ' new songs.';
-  if (duplicates > 0) msg += ' ' + duplicates + ' duplicates skipped.';
-  if (malformed > 0) msg += ' ' + malformed + ' malformed lines skipped (missing "Artist - Title" format).';
-  alert(msg);
 }
 
 // ==================== SPOTIFY AUTH (PKCE) ====================
@@ -2884,110 +2186,6 @@ async function exchangeCodeForToken(code) {
   }
 }
 
-// ==================== SPOTIFY PLAYLIST IMPORT ====================
-function importFromPlaylist() {
-  var urlInput = document.getElementById('playlist-url').value.trim();
-  if (!urlInput) { alert('Please paste a Spotify playlist URL or URI.'); return; }
-
-  var playlistId = null;
-  var urlMatch = urlInput.match(/playlist[/:]([a-zA-Z0-9]+)/);
-  if (urlMatch) playlistId = urlMatch[1];
-  if (!playlistId) { alert('Could not find a playlist ID in that URL. Expected format:\nhttps://open.spotify.com/playlist/XXXXX'); return; }
-
-  localStorage.setItem('hitstar_pending_playlist', playlistId);
-  var autoCategory = document.getElementById('playlist-category-auto').checked;
-  var manualCategory = document.getElementById('playlist-category-manual').value.trim();
-  localStorage.setItem('hitstar_pending_playlist_category', autoCategory ? '__auto__' : manualCategory);
-
-  requireSpotifyAuth('playlist');
-}
-
-async function importPlaylistWithToken() {
-  if (!spotifyToken) return;
-
-  var playlistId = localStorage.getItem('hitstar_pending_playlist');
-  var categoryPref = localStorage.getItem('hitstar_pending_playlist_category') || '__auto__';
-  localStorage.removeItem('hitstar_pending_playlist');
-  localStorage.removeItem('hitstar_pending_playlist_category');
-
-  if (!playlistId) { alert('No playlist ID found. Please try again.'); return; }
-
-  var statusEl = document.getElementById('playlist-status');
-  statusEl.textContent = 'Fetching playlist...';
-  showScreen('settings');
-
-  try {
-    var plResp = await fetch('https://api.spotify.com/v1/playlists/' + playlistId + '?fields=name,tracks.total', {
-      headers: { 'Authorization': 'Bearer ' + spotifyToken }
-    });
-    if (!plResp.ok) { statusEl.textContent = 'Error fetching playlist: ' + plResp.status; return; }
-    var plData = await plResp.json();
-    var category = categoryPref === '__auto__' ? plData.name : (categoryPref || plData.name);
-    var totalTracks = plData.tracks.total;
-    statusEl.textContent = 'Importing "' + plData.name + '" (' + totalTracks + ' tracks)...';
-
-    var added = 0, skipped = 0;
-    var offset = 0;
-    var limit = 100;
-
-    while (offset < totalTracks) {
-      var tracksResp = await fetch(
-        'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks?offset=' + offset + '&limit=' + limit + '&fields=items(track(id,name,artists(name),album(release_date)))',
-        { headers: { 'Authorization': 'Bearer ' + spotifyToken } }
-      );
-
-      if (tracksResp.status === 429) {
-        var retry = parseInt(tracksResp.headers.get('Retry-After') || '2');
-        await new Promise(function(r) { setTimeout(r, retry * 1000); });
-        continue;
-      }
-
-      if (!tracksResp.ok) { statusEl.textContent = 'Error fetching tracks: ' + tracksResp.status; break; }
-
-      var tracksData = await tracksResp.json();
-      for (var i = 0; i < tracksData.items.length; i++) {
-        var item = tracksData.items[i];
-        var track = item.track;
-        if (!track || !track.id) { skipped++; continue; }
-
-        var artist = track.artists.map(function(a) { return a.name; }).join(', ');
-        var title = track.name;
-        var year = track.album && track.album.release_date
-          ? parseInt(track.album.release_date.substring(0, 4)) || null
-          : null;
-
-        var exists = songs.some(function(s) {
-          return s.artist.toLowerCase() === artist.toLowerCase() &&
-            s.title.toLowerCase() === title.toLowerCase();
-        });
-        if (exists) { skipped++; continue; }
-
-        songs.push({
-          artist: artist,
-          title: title,
-          year: year,
-          category: category,
-          spotifyId: track.id,
-          qrCode: category + '/' + artist + ' - ' + title
-        });
-        added++;
-      }
-
-      offset += limit;
-      statusEl.textContent = 'Importing "' + plData.name + '"... ' + added + ' added, ' + skipped + ' skipped (' + offset + '/' + totalTracks + ')';
-      await new Promise(function(r) { setTimeout(r, 50); });
-    }
-
-    saveSongsToStorage();
-    renderSongList();
-    renderCategoryFilters();
-    statusEl.textContent = 'Done! Imported ' + added + ' songs from "' + plData.name + '" (' + skipped + ' skipped as duplicates or empty).';
-  } catch (e) {
-    statusEl.textContent = 'Error: ' + e.message;
-  }
-  spotifyToken = null;
-}
-
 // ==================== SPOTIFY TRACK LOOKUP ====================
 function spotifyLookupAll() {
   var missing = songs.filter(function(s) { return !s.spotifyId; });
@@ -3043,8 +2241,6 @@ async function spotifyLookupWithToken() {
     await new Promise(function(r) { setTimeout(r, 100); });
   }
 
-  saveSongsToStorage();
-  renderSongList();
   if (!statusEl.textContent.includes('Token expired')) {
     statusEl.textContent = 'Done! Found Spotify IDs for ' + found + '/' + missing.length + ' songs.';
   }
@@ -3303,15 +2499,9 @@ function songDedupeKey(s) {
 }
 
 function getGameSongPool() {
-  var pool;
-  if (sessionPlaylist && sessionPlaylist.tracks.length > 0) {
-    pool = sessionPlaylist.tracks;
-  } else {
-    var activeCats = getActiveCategories();
-    pool = activeCats.length > 0
-      ? songs.filter(function(s) { return activeCats.includes(s.category); })
-      : songs;
-  }
+  var pool = (sessionPlaylist && sessionPlaylist.tracks.length > 0)
+    ? sessionPlaylist.tracks
+    : [];
   // Filter out yearless songs, already-used songs, and deduplicate by artist+title
   // (same song on different albums has different spotifyIds)
   var seen = {};
