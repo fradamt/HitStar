@@ -172,6 +172,26 @@ h2 { font-size: 18px; margin-bottom: 10px; color: var(--text-dim); }
 .playlist-empty {
   text-align: center; color: var(--text-dim); padding: 16px; font-size: 13px;
 }
+.playlist-detail-header {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+}
+.playlist-detail-header img {
+  width: 80px; height: 80px; border-radius: 8px; object-fit: cover;
+}
+.playlist-detail-header-icon {
+  width: 80px; height: 80px; border-radius: 8px;
+  background: var(--surface2); display: flex; align-items: center;
+  justify-content: center; font-size: 32px; color: var(--accent); flex-shrink: 0;
+}
+.playlist-detail-name { font-size: 20px; font-weight: 700; }
+.playlist-detail-meta { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+.playlist-detail-track {
+  padding: 8px 0; border-bottom: 1px solid #222; font-size: 14px;
+}
+.playlist-detail-track:last-child { border-bottom: none; }
+.playlist-detail-track-artist { color: var(--text); font-weight: 500; }
+.playlist-detail-track-title { color: var(--text-dim); }
+.playlist-detail-track-year { color: var(--accent); font-size: 12px; float: right; }
 
 /* SETTINGS */
 #settings { gap: 16px; }
@@ -921,7 +941,7 @@ input[type="file"] { display: none; }
   </div>
 
   <div class="home-actions" id="home-actions">
-    <button class="btn" onclick="showGameSetup()">
+    <button class="btn" onclick="showScreen('playlists')">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
       Start Game
     </button>
@@ -1142,6 +1162,18 @@ input[type="file"] { display: none; }
     <div id="device-picker-list"></div>
     <div class="modal-actions" style="margin-top:14px">
       <button class="btn btn-outline btn-block" onclick="closeDevicePicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYLIST DETAIL MODAL -->
+<div class="modal-overlay hidden" id="playlist-detail-modal">
+  <div class="modal" style="max-width:480px">
+    <div id="playlist-detail-header"></div>
+    <div id="playlist-detail-tracks" style="max-height:50vh;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closePlaylistDetail()">Back</button>
+      <button class="btn" id="playlist-detail-start" onclick="startGameFromPlaylist()">Start Game</button>
     </div>
   </div>
 </div>
@@ -2278,6 +2310,157 @@ function onPlaylistSearch(query) {
   }, 400);
 }
 
+// ==================== PLAYLIST DETAIL ====================
+
+var selectedPlaylistMeta = null;
+var selectedPlaylistTracks = null;
+
+async function openPlaylistDetail(playlist) {
+  selectedPlaylistMeta = playlist;
+  selectedPlaylistTracks = null;
+
+  // Show modal with loading state
+  document.getElementById('playlist-detail-modal').classList.remove('hidden');
+
+  // Render header
+  var header = document.getElementById('playlist-detail-header');
+  header.textContent = '';
+  var headerDiv = document.createElement('div');
+  headerDiv.className = 'playlist-detail-header';
+
+  if (playlist.image) {
+    var img = document.createElement('img');
+    img.src = playlist.image;
+    img.alt = playlist.name;
+    headerDiv.appendChild(img);
+  } else {
+    var icon = document.createElement('div');
+    icon.className = 'playlist-detail-header-icon';
+    icon.textContent = '\u266A';
+    headerDiv.appendChild(icon);
+  }
+
+  var infoDiv = document.createElement('div');
+  var nameDiv = document.createElement('div');
+  nameDiv.className = 'playlist-detail-name';
+  nameDiv.textContent = playlist.name;
+  infoDiv.appendChild(nameDiv);
+
+  var metaDiv = document.createElement('div');
+  metaDiv.className = 'playlist-detail-meta';
+  metaDiv.textContent = 'Loading tracks...';
+  infoDiv.appendChild(metaDiv);
+  headerDiv.appendChild(infoDiv);
+  header.appendChild(headerDiv);
+
+  // Loading state for tracks
+  var tracksList = document.getElementById('playlist-detail-tracks');
+  tracksList.textContent = '';
+  var loadingEl = document.createElement('div');
+  loadingEl.className = 'playlist-loading';
+  loadingEl.textContent = 'Loading tracks...';
+  tracksList.appendChild(loadingEl);
+
+  // Disable start button while loading
+  document.getElementById('playlist-detail-start').disabled = true;
+
+  // Fetch tracks
+  var tracks;
+  if (playlist.id === '__builtin__') {
+    var bp = await loadBuiltinPlaylist();
+    tracks = bp ? bp.tracks : [];
+  } else {
+    tracks = await fetchPlaylistTracks(playlist.id);
+  }
+  selectedPlaylistTracks = tracks;
+
+  // Filter yearless songs for counting
+  var usable = tracks.filter(function(t) {
+    var yr = parseInt(t.year);
+    return yr && yr > 0;
+  });
+  var skipped = tracks.length - usable.length;
+
+  // Update meta with counts
+  metaDiv.textContent = usable.length + ' playable songs' + (skipped > 0 ? ' (' + skipped + ' skipped, no year)' : '');
+
+  // Render track list
+  tracksList.textContent = '';
+  if (usable.length === 0) {
+    var emptyEl = document.createElement('div');
+    emptyEl.className = 'playlist-empty';
+    emptyEl.textContent = 'No playable songs found (all missing year data).';
+    tracksList.appendChild(emptyEl);
+    document.getElementById('playlist-detail-start').disabled = true;
+    return;
+  }
+
+  // Show first 50 tracks (for performance on large playlists)
+  var showTracks = usable.slice(0, 50);
+  showTracks.forEach(function(t) {
+    var row = document.createElement('div');
+    row.className = 'playlist-detail-track';
+
+    var yearSpan = document.createElement('span');
+    yearSpan.className = 'playlist-detail-track-year';
+    yearSpan.textContent = t.year || '';
+    row.appendChild(yearSpan);
+
+    var artistSpan = document.createElement('span');
+    artistSpan.className = 'playlist-detail-track-artist';
+    artistSpan.textContent = t.artist;
+    row.appendChild(artistSpan);
+
+    var sep = document.createTextNode(' \u2014 ');
+    row.appendChild(sep);
+
+    var titleSpan = document.createElement('span');
+    titleSpan.className = 'playlist-detail-track-title';
+    titleSpan.textContent = t.title;
+    row.appendChild(titleSpan);
+
+    tracksList.appendChild(row);
+  });
+
+  if (usable.length > 50) {
+    var moreEl = document.createElement('div');
+    moreEl.className = 'playlist-empty';
+    moreEl.textContent = '...and ' + (usable.length - 50) + ' more';
+    tracksList.appendChild(moreEl);
+  }
+
+  // Enable start button
+  document.getElementById('playlist-detail-start').disabled = false;
+}
+
+function closePlaylistDetail() {
+  document.getElementById('playlist-detail-modal').classList.add('hidden');
+  selectedPlaylistMeta = null;
+  selectedPlaylistTracks = null;
+}
+
+function startGameFromPlaylist() {
+  if (!selectedPlaylistTracks || selectedPlaylistTracks.length === 0) return;
+
+  // Set sessionPlaylist
+  sessionPlaylist = {
+    name: selectedPlaylistMeta.name,
+    tracks: selectedPlaylistTracks
+  };
+
+  // Add to recent playlists
+  addRecentPlaylist({
+    id: selectedPlaylistMeta.id,
+    name: selectedPlaylistMeta.name,
+    image: selectedPlaylistMeta.image || null,
+    trackCount: selectedPlaylistMeta.trackCount || selectedPlaylistTracks.length
+  });
+
+  // Close detail modal and open game setup
+  closePlaylistDetail();
+  showGameSetup();
+}
+
 // ==================== NAVIGATION ====================
 function showScreen(id) {
   // If navigating away from the game board while a game is active, end it cleanly
@@ -2490,8 +2673,9 @@ function revealSong() {
 }
 
 function playRandom() {
-  if (!sessionPlaylist || sessionPlaylist.tracks.length === 0) {
-    alert('No playlist selected! Choose a playlist in the Playlists tab first.');
+  if (!sessionPlaylist || !sessionPlaylist.tracks || sessionPlaylist.tracks.length === 0) {
+    showToast('No playlist selected. Pick a playlist first.', 'error');
+    showScreen('playlists');
     return;
   }
 
@@ -2660,6 +2844,13 @@ function setSetupMode(mode) {
 }
 
 function startGame() {
+  if (!sessionPlaylist || !sessionPlaylist.tracks || sessionPlaylist.tracks.length === 0) {
+    showToast('No playlist selected. Pick a playlist first.', 'error');
+    closeGameSetup();
+    showScreen('playlists');
+    return;
+  }
+
   var p1 = document.getElementById('setup-p1-name').value.trim() || 'Player 1';
   var p2 = document.getElementById('setup-p2-name').value.trim() || 'Player 2';
   var winCount = parseInt(document.getElementById('setup-win-count').value) || 10;
