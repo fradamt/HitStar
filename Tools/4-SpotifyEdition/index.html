@@ -1697,15 +1697,14 @@ async function refreshDeviceList() {
   });
 
   // "Current Spotify device" option — plays on whatever Spotify is currently using.
-  // This catches devices with null IDs (Sonos groups, restricted devices) that
-  // don't appear in /me/player/devices.
-  var activeItem = document.createElement('button');
-  activeItem.className = 'device-item';
-  if (externalDeviceId === '__active__') activeItem.classList.add('selected');
-  var activeName = activeDevice && activeDevice.name ? activeDevice.name : 'No active device';
-  var activeIcon = '\uD83C\uDFB5';
-  if (activeDevice) {
-    activeIcon = activeDevice.type === 'Speaker' ? '\uD83D\uDD0A'
+  // Only show if the active device is NOT restricted (restricted = Spotify Web API can't control it).
+  var isRestricted = activeDevice && activeDevice.is_restricted;
+  if (activeDevice && !isRestricted) {
+    var activeItem = document.createElement('button');
+    activeItem.className = 'device-item';
+    if (externalDeviceId === '__active__') activeItem.classList.add('selected');
+    var activeName = activeDevice.name || 'Unknown device';
+    var activeIcon = activeDevice.type === 'Speaker' ? '\uD83D\uDD0A'
       : activeDevice.type === 'Smartphone' ? '\uD83D\uDCF1'
       : activeDevice.type === 'Computer' ? '\uD83D\uDCBB'
       : activeDevice.type === 'TV' ? '\uD83D\uDCFA'
@@ -1713,20 +1712,22 @@ async function refreshDeviceList() {
       : activeDevice.type === 'Game_console' ? '\uD83C\uDFAE'
       : activeDevice.type === 'Automobile' ? '\uD83D\uDE97'
       : '\uD83C\uDFB5';
+    activeItem.innerHTML = activeIcon + ' Current Spotify device' +
+      '<span style="display:block;font-size:12px;color:var(--text-dim);margin-top:2px">' + activeName + '</span>';
+    activeItem.addEventListener('click', function() {
+      selectDevice('__active__', activeName);
+      closeDevicePicker();
+    });
+    list.appendChild(activeItem);
+    var sep = document.createElement('div');
+    sep.style.cssText = 'border-top:1px solid #333;margin:10px 0;';
+    list.appendChild(sep);
+  } else if (isRestricted) {
+    var notice = document.createElement('div');
+    notice.style.cssText = 'padding:10px 12px;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:8px;margin-bottom:10px;font-size:12px;color:var(--text-dim);';
+    notice.innerHTML = '\uD83D\uDD0A <strong style="color:var(--text)">' + activeDevice.name + '</strong> is playing but can\u2019t be controlled from web apps (Spotify restriction). Choose a device below \u2014 HitStar will transfer playback to it.';
+    list.appendChild(notice);
   }
-  activeItem.innerHTML = activeIcon + ' Current Spotify device' +
-    '<span style="display:block;font-size:12px;color:var(--text-dim);margin-top:2px">' +
-    (activeDevice ? activeName : 'Start playing on any device in the Spotify app') + '</span>';
-  activeItem.addEventListener('click', function() {
-    selectDevice('__active__', activeName);
-    closeDevicePicker();
-  });
-  list.appendChild(activeItem);
-
-  // Separator
-  var sep = document.createElement('div');
-  sep.style.cssText = 'border-top:1px solid #333;margin:10px 0;';
-  list.appendChild(sep);
 
   merged.forEach(function(d) {
     var item = document.createElement('button');
@@ -2123,7 +2124,32 @@ async function startSDKPlayback(song) {
       return false;
     }
 
-    if (resp.status === 403 || resp.status === 404) {
+    // 403 from restricted device (e.g. Sonos) — try to reclaim HitStar Player
+    if (resp.status === 403) {
+      var errBody = null;
+      try { errBody = await resp.json(); } catch (e) {}
+      if (errBody && errBody.error && /restricted/i.test(errBody.error.message)) {
+        showToast('Restricted device — switching to HitStar Player...', 'error');
+        // Reset to SDK mode and reclaim
+        externalDeviceId = null;
+        externalDeviceName = '';
+        stopExternalPolling();
+        var labelEl = document.getElementById('current-device-name');
+        if (labelEl) labelEl.textContent = 'HitStar Player (this browser)';
+        var gameLabelEl = document.getElementById('game-device-name');
+        if (gameLabelEl) gameLabelEl.textContent = '';
+        var transferred = await transferToHitStar();
+        if (transferred) {
+          var retryResp = await playTrackById(song.spotifyId);
+          if (retryResp.status === 204 || retryResp.status === 200) return true;
+        }
+        return false;
+      }
+      showToast('Track not available on Spotify', 'error');
+      return false;
+    }
+
+    if (resp.status === 404) {
       showToast('Track not available on Spotify', 'error');
       return false;
     }
