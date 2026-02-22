@@ -360,6 +360,8 @@ input[type="file"] { display: none; }
 .card-size-large .game-card-art { width: 80px; height: 80px; border-radius: 8px; margin-bottom: 6px; }
 /* Small tier: hide art */
 .card-size-small .game-card-art { display: none; }
+/* Art placeholder fallback */
+.game-card-art-placeholder { box-sizing: border-box; }
 .game-card.card-p0 { border-color: rgba(231,76,60,0.3); }
 .game-card.card-p1 { border-color: rgba(52,152,219,0.3); }
 .game-card.card-p0:hover { border-color: rgba(231,76,60,0.6); }
@@ -1197,6 +1199,7 @@ input[type="file"] { display: none; }
     <div class="victory-subtitle" id="victory-subtitle">With 10 cards</div>
     <div class="victory-actions">
       <button class="btn" onclick="showGameSetup()">Play Again</button>
+      <button class="btn btn-outline" onclick="keepPlaying()">Keep Playing</button>
       <button class="btn btn-outline" onclick="quitGame()">Back to Home</button>
     </div>
   </div>
@@ -1280,6 +1283,7 @@ var SETTINGS_KEY = 'hitstar_settings';
 var PENDING_KEY = 'hitstar_pending_action';
 var SDK_TOKEN_KEY = 'hitstar_sdk_token';
 var SDK_TOKEN_EXPIRY_KEY = 'hitstar_sdk_token_expiry';
+var GAME_SAVE_KEY = 'hitstar_game_save';
 
 // SVG icon markup for play/pause buttons
 var PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
@@ -1724,6 +1728,12 @@ function init() {
 
   updateHomeConnectUI();
   updateSessionPlaylistIndicator();
+
+  // Check for saved game to resume
+  var savedGame = loadGameSave();
+  if (savedGame && savedGame.active && savedGame.players && savedGame.players.length > 0) {
+    showResumeBanner(savedGame);
+  }
 }
 
 // Exchange PKCE auth code for token, then apply it
@@ -2706,6 +2716,18 @@ function startGame() {
   var winCount = parseInt(document.getElementById('setup-win-count').value) || 10;
   var isTokenMode = document.getElementById('setup-mode-token').classList.contains('active');
 
+  // Pause any existing playback before resetting
+  if (sdkIsPlaying) {
+    pausePlayback();
+  }
+
+  // Clear any lingering DOM elements from previous game
+  var gameBody = document.getElementById('game-body');
+  if (gameBody) gameBody.textContent = '';
+  dismissTitleJudge();
+  // Remove any lingering flash/banner overlays
+  document.querySelectorAll('.guess-flash, .guess-banner, .card-popout-overlay').forEach(function(el) { el.remove(); });
+
   gameState = {
     active: true,
     players: [
@@ -2723,6 +2745,9 @@ function startGame() {
     challengeActive: -1
   };
 
+  // Clear any saved game when starting fresh
+  clearGameSave();
+
   closeGameSetup();
   document.getElementById('victory-overlay').classList.add('hidden');
 
@@ -2733,12 +2758,17 @@ function startGame() {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById('game-board').classList.add('active');
 
+  // Reset now-playing bar
+  updateNowPlayingBar(null, false);
+  setGameStatus('', '');
+
   renderGameBoard();
   gamePlayNext();
 }
 
 function quitGame() {
   gameState.active = false;
+  gameState.phase = 'done';
   document.getElementById('victory-overlay').classList.add('hidden');
   document.querySelector('.nav').style.display = '';
 
@@ -2747,7 +2777,122 @@ function quitGame() {
     pausePlayback();
   }
 
+  // Clean up lingering DOM elements
+  dismissTitleJudge();
+  document.querySelectorAll('.guess-flash, .guess-banner, .card-popout-overlay').forEach(function(el) { el.remove(); });
+  // Clear game body to avoid stale DOM
+  var gameBody = document.getElementById('game-body');
+  if (gameBody) gameBody.textContent = '';
+
+  // Clear saved game
+  clearGameSave();
+
   showScreen('home');
+}
+
+// ==================== GAME SAVE/RESTORE ====================
+function saveGame() {
+  if (!gameState.active) return;
+  try {
+    var saveData = {
+      players: gameState.players,
+      currentPlayer: gameState.currentPlayer,
+      currentSong: gameState.currentSong,
+      discardPile: gameState.discardPile,
+      phase: gameState.phase,
+      winCount: gameState.winCount,
+      usedSongIds: gameState.usedSongIds,
+      tokenMode: gameState.tokenMode,
+      active: gameState.active,
+      savedAt: Date.now()
+    };
+    localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(saveData));
+  } catch (e) {
+    // Silently fail if storage is full
+  }
+}
+
+function clearGameSave() {
+  localStorage.removeItem(GAME_SAVE_KEY);
+}
+
+function loadGameSave() {
+  try {
+    var stored = localStorage.getItem(GAME_SAVE_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored);
+  } catch (e) {
+    return null;
+  }
+}
+
+function restoreGame(saveData) {
+  gameState = {
+    active: true,
+    players: saveData.players || [],
+    currentPlayer: saveData.currentPlayer || 0,
+    currentSong: saveData.currentSong || null,
+    discardPile: saveData.discardPile || [],
+    // Always restore to 'waiting' so user can click deck to continue
+    phase: 'waiting',
+    winCount: saveData.winCount || 10,
+    usedSongIds: saveData.usedSongIds || [],
+    tokenMode: saveData.tokenMode || false,
+    titleGuess: '',
+    challengeActive: -1
+  };
+
+  // Hide bottom nav and show game board
+  document.querySelector('.nav').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('game-board').classList.add('active');
+
+  // Reset now-playing bar (don't try to resume mid-song)
+  updateNowPlayingBar(null, false);
+  setGameStatus('Game restored - tap deck to continue', '');
+
+  renderGameBoard();
+}
+
+function showResumeBanner(saveData) {
+  var playerNames = saveData.players.map(function(p) { return p.name; }).join(' vs ');
+  var cardCounts = saveData.players.map(function(p) { return p.cards ? p.cards.length : 0; }).join('-');
+
+  var banner = document.createElement('div');
+  banner.id = 'resume-banner';
+  banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
+    + 'background:var(--surface);border:1px solid var(--accent);border-radius:14px;'
+    + 'padding:14px 20px;z-index:250;box-shadow:0 4px 20px rgba(0,0,0,0.5);'
+    + 'text-align:center;max-width:90vw;animation:fadeIn 0.3s ease-out;';
+
+  var text = document.createElement('div');
+  text.style.cssText = 'font-size:14px;color:var(--text);margin-bottom:10px;';
+  text.textContent = 'Resume: ' + playerNames + ' (' + cardCounts + ' cards)';
+  banner.appendChild(text);
+
+  var btns = document.createElement('div');
+  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+
+  var resumeBtn = document.createElement('button');
+  resumeBtn.className = 'btn btn-sm';
+  resumeBtn.textContent = 'Resume Game';
+  resumeBtn.addEventListener('click', function() {
+    banner.remove();
+    restoreGame(saveData);
+  });
+  btns.appendChild(resumeBtn);
+
+  var dismissBtn = document.createElement('button');
+  dismissBtn.className = 'btn btn-sm btn-outline';
+  dismissBtn.textContent = 'Dismiss';
+  dismissBtn.addEventListener('click', function() {
+    banner.remove();
+    clearGameSave();
+  });
+  btns.appendChild(dismissBtn);
+
+  banner.appendChild(btns);
+  document.body.appendChild(banner);
 }
 
 function songDedupeKey(s) {
@@ -2813,6 +2958,7 @@ async function gamePlayNext() {
   } else {
     setGameStatus('Connect Spotify first!', 'wrong');
   }
+  saveGame();
 }
 
 function setGameStatus(text, cls) {
@@ -3093,23 +3239,35 @@ function renderGameBoard() {
     var topCard = document.createElement('div');
     topCard.className = 'discard-pile-card card-p' + last.playerIndex;
 
-    // Album art on discard pile top card
-    var tcArt = document.createElement('img');
-    tcArt.className = 'game-card-art';
-    tcArt.alt = '';
-    tcArt.style.display = 'none';
+    // Album art on discard pile top card (with fallback)
     if (last.song.albumArt) {
+      var tcArt = document.createElement('img');
+      tcArt.className = 'game-card-art';
+      tcArt.alt = '';
       tcArt.src = last.song.albumArt;
-      tcArt.style.display = '';
-    } else if (sdkToken && last.song.artist && last.song.title) {
-      searchSpotifyId(last.song).then(function() {
-        if (last.song.albumArt) {
-          tcArt.src = last.song.albumArt;
-          tcArt.style.display = '';
-        }
-      });
+      tcArt.onerror = function() {
+        var ph = createArtPlaceholder(last.song, last.playerIndex);
+        tcArt.parentNode.replaceChild(ph, tcArt);
+      };
+      topCard.appendChild(tcArt);
+    } else {
+      var tcPh = createArtPlaceholder(last.song, last.playerIndex);
+      topCard.appendChild(tcPh);
+      if (sdkToken && last.song.artist && last.song.title) {
+        (function(ph, songRef) {
+          searchSpotifyId(songRef).then(function() {
+            if (songRef.albumArt) {
+              var img = document.createElement('img');
+              img.className = 'game-card-art';
+              img.alt = '';
+              img.src = songRef.albumArt;
+              img.onload = function() { if (ph.parentNode) ph.parentNode.replaceChild(img, ph); };
+              img.onerror = function() {};
+            }
+          });
+        })(tcPh, last.song);
+      }
     }
-    topCard.appendChild(tcArt);
 
     var tcYear = document.createElement('div');
     tcYear.className = 'game-card-year';
@@ -3153,27 +3311,59 @@ function renderGameBoard() {
   }
 }
 
+function createArtPlaceholder(song, playerIdx) {
+  var el = document.createElement('div');
+  el.className = 'game-card-art-placeholder game-card-art';
+  var colors = ['#e74c3c', '#3498db'];
+  el.style.background = 'linear-gradient(135deg, ' + (colors[playerIdx] || '#555') + '33, var(--surface2))';
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.style.borderRadius = '6px';
+  el.style.fontSize = '14px';
+  el.style.fontWeight = '700';
+  el.style.color = 'var(--text-dim)';
+  el.textContent = song.year || '?';
+  return el;
+}
+
 function createGameCard(cardData, playerIdx) {
   var card = document.createElement('div');
   card.className = 'game-card card-p' + playerIdx;
 
-  // Album art (hidden until loaded; hidden at small tier via CSS)
-  var artEl = document.createElement('img');
-  artEl.className = 'game-card-art';
-  artEl.alt = '';
-  artEl.style.display = 'none';
+  // Album art with fallback placeholder
   if (cardData.song.albumArt) {
+    var artEl = document.createElement('img');
+    artEl.className = 'game-card-art';
+    artEl.alt = '';
     artEl.src = cardData.song.albumArt;
-    artEl.style.display = '';
-  } else if (sdkToken && cardData.song.artist && cardData.song.title) {
-    searchSpotifyId(cardData.song).then(function() {
-      if (cardData.song.albumArt) {
-        artEl.src = cardData.song.albumArt;
-        artEl.style.display = '';
-      }
-    });
+    artEl.onerror = function() {
+      // Replace broken image with colored placeholder
+      var placeholder = createArtPlaceholder(cardData.song, playerIdx);
+      artEl.parentNode.replaceChild(placeholder, artEl);
+    };
+    card.appendChild(artEl);
+  } else {
+    var placeholder = createArtPlaceholder(cardData.song, playerIdx);
+    card.appendChild(placeholder);
+    // Try to fetch album art in background
+    if (sdkToken && cardData.song.artist && cardData.song.title) {
+      (function(ph, cd) {
+        searchSpotifyId(cd.song).then(function() {
+          if (cd.song.albumArt) {
+            var img = document.createElement('img');
+            img.className = 'game-card-art';
+            img.alt = '';
+            img.src = cd.song.albumArt;
+            img.onerror = function() {}; // keep placeholder on error
+            img.onload = function() {
+              if (ph.parentNode) ph.parentNode.replaceChild(img, ph);
+            };
+          }
+        });
+      })(placeholder, cardData);
+    }
   }
-  card.appendChild(artEl);
 
   var year = document.createElement('div');
   year.className = 'game-card-year';
@@ -3597,6 +3787,7 @@ async function checkPlacement(playerIdx, position) {
   gameState.phase = 'waiting';
   renderGameBoard();
   setGameStatus('', '');
+  saveGame();
 }
 
 function showVictory(playerIdx) {
@@ -3612,6 +3803,16 @@ function showVictory(playerIdx) {
   if (sdkIsPlaying) {
     pausePlayback();
   }
+}
+
+function keepPlaying() {
+  document.getElementById('victory-overlay').classList.add('hidden');
+  gameState.phase = 'waiting';
+  gameState.active = true;
+  // Bump winCount to prevent re-triggering victory on subsequent turns
+  gameState.winCount = 999;
+  renderGameBoard();
+  saveGame();
 }
 
 function showDiscardModal() {
