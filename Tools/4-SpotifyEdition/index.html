@@ -1307,7 +1307,7 @@ async function fetchMyPlaylists(offset) {
     if (!resp || !resp.ok) return { items: [], total: 0 };
     var data = await resp.json();
     return {
-      items: data.items.map(function(p) {
+      items: data.items.filter(Boolean).map(function(p) {
         return {
           id: p.id,
           name: p.name,
@@ -1330,7 +1330,7 @@ async function searchPlaylists(query) {
     if (!resp || !resp.ok) return [];
     var data = await resp.json();
     if (!data.playlists || !data.playlists.items) return [];
-    return data.playlists.items.map(function(p) {
+    return data.playlists.items.filter(Boolean).map(function(p) {
       return {
         id: p.id,
         name: p.name,
@@ -1352,10 +1352,10 @@ async function fetchPlaylistTracks(playlistId) {
   var total = Infinity;
 
   while (offset < total) {
+    // Use /items endpoint (Feb 2026 API change: /tracks → /items)
     var resp = await spotifyFetch(
       'https://api.spotify.com/v1/playlists/' + playlistId +
-      '/tracks?offset=' + offset + '&limit=' + limit +
-      '&fields=total,items(track(id,name,artists(name),album(release_date)))'
+      '/items?offset=' + offset + '&limit=' + limit
     );
 
     if (!resp || resp.status === 429) {
@@ -1364,14 +1364,18 @@ async function fetchPlaylistTracks(playlistId) {
       continue;
     }
 
+    // 403 = playlist not owned by user (Spotify API restriction)
+    if (resp.status === 403) return { error: 'not_owned' };
     if (!resp.ok) break;
 
     var data = await resp.json();
     total = data.total || 0;
 
+    if (!data.items) break;
     for (var i = 0; i < data.items.length; i++) {
       var item = data.items[i];
-      var track = item.track;
+      // Feb 2026 API change: item.track → item.item (support both)
+      var track = item.item || item.track;
       if (!track || !track.id) continue;
 
       var artist = track.artists.map(function(a) { return a.name; }).join(', ');
@@ -1520,7 +1524,7 @@ function initializeSDKPlayer() {
   });
 
   sdkPlayer.addListener('initialization_error', function(e) {
-    showToast('Player init failed: ' + e.message, 'error');
+    showToast('Player unavailable — use an external device for playback', 'error');
     updateSDKStatus('Init error');
   });
   sdkPlayer.addListener('authentication_error', function(e) {
@@ -2363,7 +2367,28 @@ async function openPlaylistDetail(playlist) {
     var bp = await loadBuiltinPlaylist();
     tracks = bp ? bp.tracks : [];
   } else {
-    tracks = await fetchPlaylistTracks(playlist.id);
+    if (!isTokenValid()) {
+      metaDiv.textContent = 'Connect Spotify to load tracks';
+      tracksList.textContent = '';
+      var authEl = document.createElement('div');
+      authEl.className = 'playlist-empty';
+      authEl.textContent = 'Spotify connection required to load playlist tracks.';
+      tracksList.appendChild(authEl);
+      document.getElementById('playlist-detail-start').disabled = true;
+      return;
+    }
+    var result = await fetchPlaylistTracks(playlist.id);
+    if (result && result.error === 'not_owned') {
+      metaDiv.textContent = 'Cannot load tracks';
+      tracksList.textContent = '';
+      var errEl = document.createElement('div');
+      errEl.className = 'playlist-empty';
+      errEl.textContent = 'Spotify only allows reading tracks from playlists you own. Try a playlist you created, or use HitStar Classics.';
+      tracksList.appendChild(errEl);
+      document.getElementById('playlist-detail-start').disabled = true;
+      return;
+    }
+    tracks = Array.isArray(result) ? result : [];
   }
   selectedPlaylistTracks = tracks;
 
