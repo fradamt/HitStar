@@ -1323,8 +1323,10 @@ async function fetchMyPlaylists(offset) {
     return {
       items: data.items.filter(Boolean).filter(function(p) {
         // Only show playlists the user owns or collaborates on (Spotify API restriction)
+        // If we couldn't fetch user ID, show all rather than none
+        if (!spotifyUserId) return true;
         if (p.collaborative) return true;
-        return spotifyUserId && p.owner && p.owner.id === spotifyUserId;
+        return p.owner && p.owner.id === spotifyUserId;
       }).map(function(p) {
         return {
           id: p.id,
