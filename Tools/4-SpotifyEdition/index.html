@@ -1222,6 +1222,7 @@ var sdkIsPlaying = false;
 var sdkProgressInterval = null;
 var sdkCurrentPosition = 0;
 var sdkDuration = 0;
+var sdkDeviceLost = false; // true when playback transferred to another device
 
 // Session playlist state
 var sessionPlaylist = null;
@@ -1312,11 +1313,14 @@ function initializeSDKPlayer(token) {
 
   sdkPlayer.addListener('player_state_changed', function(state) {
     if (!state) {
+      // Playback was transferred to another device (Sonos, phone, etc.)
       sdkIsPlaying = false;
+      sdkDeviceLost = true;
       updatePlayPauseButtons();
       stopProgressTracking();
       return;
     }
+    sdkDeviceLost = false;
     sdkIsPlaying = !state.paused;
     sdkCurrentPosition = state.position;
     sdkDuration = state.duration;
@@ -1365,6 +1369,28 @@ function connectSpotifySDK() {
   requireSpotifyAuth('sdk');
 }
 
+// Transfer playback back to HitStar Player when another device took over
+async function transferToHitStar() {
+  if (!sdkDeviceId || !sdkToken) return false;
+  try {
+    var resp = await fetch('https://api.spotify.com/v1/me/player', {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + sdkToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ device_ids: [sdkDeviceId], play: false })
+    });
+    if (resp.status === 204 || resp.status === 200) {
+      sdkDeviceLost = false;
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
 // ==================== PLAY/PAUSE CONTROLS ====================
 function updatePlayPauseButtons() {
   var btn1 = document.getElementById('sdk-play-btn-listening');
@@ -1378,10 +1404,13 @@ function updatePlayPauseButtons() {
   }
 }
 
-function togglePlayback() {
+async function togglePlayback() {
   if (!sdkPlayer || !sdkReady) {
     showToast('Spotify not connected. Go to Settings to connect.', 'error');
     return;
+  }
+  if (sdkDeviceLost) {
+    await transferToHitStar();
   }
   sdkPlayer.togglePlay();
 }
@@ -1714,7 +1743,20 @@ async function startSDKPlayback(song) {
   if (!song.spotifyId) return false;
 
   try {
+    // If playback was transferred to another device, reclaim it first
+    if (sdkDeviceLost) {
+      await transferToHitStar();
+    }
+
     var resp = await playTrackById(song.spotifyId);
+
+    // If the device isn't active (transferred away), reclaim and retry
+    if (resp.status === 404 || resp.status === 502) {
+      var transferred = await transferToHitStar();
+      if (transferred) {
+        resp = await playTrackById(song.spotifyId);
+      }
+    }
 
     if (resp.status === 204 || resp.status === 200) return true;
 
