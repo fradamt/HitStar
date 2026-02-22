@@ -337,9 +337,10 @@ input[type="file"] { display: none; }
 .card-row::-webkit-scrollbar { height: 4px; }
 .card-row::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
 
-/* Game card */
+/* Game card — size driven by CSS vars set by computeCardSize() */
 .game-card {
-  min-width: 90px; max-width: 100px; height: 110px;
+  width: var(--card-w, 90px); min-width: var(--card-w, 90px);
+  height: var(--card-h, 110px);
   background: var(--card-bg); border-radius: 10px;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; padding: 8px 6px; cursor: pointer;
@@ -347,6 +348,16 @@ input[type="file"] { display: none; }
   flex-shrink: 0; position: relative; user-select: none;
   perspective: 600px;
 }
+
+/* Album art on cards */
+.game-card-art {
+  width: 48px; height: 48px; border-radius: 6px; object-fit: cover;
+  margin-bottom: 4px; flex-shrink: 0;
+}
+/* Large tier: bigger art */
+.card-size-large .game-card-art { width: 80px; height: 80px; border-radius: 8px; margin-bottom: 6px; }
+/* Small tier: hide art */
+.card-size-small .game-card-art { display: none; }
 .game-card.card-p0 { border-color: rgba(231,76,60,0.3); }
 .game-card.card-p1 { border-color: rgba(52,152,219,0.3); }
 .game-card.card-p0:hover { border-color: rgba(231,76,60,0.6); }
@@ -408,6 +419,13 @@ input[type="file"] { display: none; }
   text-align: center; max-width: 100%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Card tier text sizing */
+.card-size-large .game-card-year { font-size: 28px; }
+.card-size-large .game-card-artist { font-size: 12px; }
+.card-size-large .game-card-title { font-size: 11px; }
+.card-size-medium .game-card-year { font-size: 22px; }
+.card-size-medium .game-card-artist { font-size: 11px; }
+.card-size-medium .game-card-title { font-size: 10px; }
 
 /* Card flip animation */
 .game-card-inner {
@@ -438,7 +456,7 @@ input[type="file"] { display: none; }
 
 /* Placement slot */
 .placement-slot {
-  min-width: 44px; height: 110px;
+  min-width: 44px; height: var(--card-h, 110px);
   border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0;
@@ -508,13 +526,13 @@ input[type="file"] { display: none; }
   cursor: pointer; margin-top: 16px; align-self: center;
 }
 .discard-pile-card-empty {
-  min-width: 90px; height: 110px; border-radius: 10px;
+  min-width: var(--card-w, 90px); height: var(--card-h, 110px); border-radius: 10px;
   border: 2px dashed rgba(255,255,255,0.15);
   display: flex; align-items: center; justify-content: center;
   color: var(--text-dim); font-size: 13px;
 }
 .discard-pile-card {
-  min-width: 90px; max-width: 100px; height: 110px;
+  min-width: var(--card-w, 90px); width: var(--card-w, 90px); height: var(--card-h, 110px);
   background: var(--card-bg); border-radius: 10px;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; padding: 8px 6px;
@@ -547,7 +565,7 @@ input[type="file"] { display: none; }
   cursor: pointer;
 }
 .deck-card {
-  min-width: 90px; max-width: 100px; height: 110px;
+  min-width: var(--card-w, 90px); width: var(--card-w, 90px); height: var(--card-h, 110px);
   background: var(--surface2); border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid transparent; position: relative;
@@ -646,6 +664,55 @@ input[type="file"] { display: none; }
 .setup-win-row select {
   background: var(--bg); border: 1px solid #444; border-radius: 8px;
   color: var(--text); padding: 6px 10px; font-size: 14px;
+}
+
+/* Wide screens: piles move to the side */
+@media (min-width: 900px) {
+  .game-body {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 20px;
+  }
+  .player-row { grid-column: 1; }
+  .game-piles {
+    grid-column: 2; grid-row: 1 / -1;
+    flex-direction: column; margin-top: 0; align-self: center;
+  }
+}
+
+/* Guess result flash overlay */
+.guess-flash {
+  position: fixed; inset: 0; z-index: 200; pointer-events: none;
+  animation: flashFade 0.7s ease-out forwards;
+}
+.guess-flash.correct { background: rgba(29, 185, 84, 0.25); }
+.guess-flash.wrong { background: rgba(231, 76, 60, 0.3); }
+@keyframes flashFade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Guess result banner */
+.guess-banner {
+  position: fixed; top: 56px; left: 50%; transform: translateX(-50%);
+  z-index: 210; padding: 10px 28px; border-radius: 12px;
+  font-size: 17px; font-weight: 700; text-align: center;
+  animation: bannerSlide 1.4s ease-out forwards;
+  pointer-events: none; white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.guess-banner.correct {
+  background: var(--accent); color: #000;
+}
+.guess-banner.wrong {
+  background: var(--danger); color: #fff;
+}
+@keyframes bannerSlide {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 }
 </style>
 </head>
@@ -2318,9 +2385,35 @@ function setGameStatus(text, cls) {
   el.className = 'game-topbar-status' + (cls ? ' ' + cls : '');
 }
 
+function computeCardSize() {
+  var body = document.getElementById('game-body');
+  if (!body) return;
+  var isWide = window.innerWidth >= 900;
+  var padding = 32; // 16px each side
+  var pilesWidth = isWide ? 140 : 0;
+  var availableWidth = body.clientWidth - padding - pilesWidth;
+  var maxCards = 2; // minimum: 2 slots
+  for (var i = 0; i < gameState.players.length; i++) {
+    var count = gameState.players[i].cards.length + 2; // cards + placement slots
+    if (count > maxCards) maxCards = count;
+  }
+  var gap = 6;
+  var cardWidth = Math.floor(availableWidth / maxCards) - gap;
+  cardWidth = Math.max(90, Math.min(160, cardWidth));
+  var tier, cardH;
+  if (cardWidth >= 140) { tier = 'large'; cardH = 210; }
+  else if (cardWidth >= 110) { tier = 'medium'; cardH = 150; }
+  else { tier = 'small'; cardWidth = 90; cardH = 110; }
+  body.style.setProperty('--card-w', cardWidth + 'px');
+  body.style.setProperty('--card-h', cardH + 'px');
+  body.classList.remove('card-size-small', 'card-size-medium', 'card-size-large');
+  body.classList.add('card-size-' + tier);
+}
+
 function renderGameBoard() {
   var body = document.getElementById('game-body');
   body.textContent = '';
+  computeCardSize();
 
   for (var p = 0; p < gameState.players.length; p++) {
     var player = gameState.players[p];
@@ -2485,6 +2578,24 @@ function renderGameBoard() {
 function createGameCard(cardData, playerIdx) {
   var card = document.createElement('div');
   card.className = 'game-card card-p' + playerIdx;
+
+  // Album art (hidden until loaded; hidden at small tier via CSS)
+  var artEl = document.createElement('img');
+  artEl.className = 'game-card-art';
+  artEl.alt = '';
+  artEl.style.display = 'none';
+  if (cardData.song.albumArt) {
+    artEl.src = cardData.song.albumArt;
+    artEl.style.display = '';
+  } else if (sdkToken && cardData.song.artist && cardData.song.title) {
+    searchSpotifyId(cardData.song).then(function() {
+      if (cardData.song.albumArt) {
+        artEl.src = cardData.song.albumArt;
+        artEl.style.display = '';
+      }
+    });
+  }
+  card.appendChild(artEl);
 
   var year = document.createElement('div');
   year.className = 'game-card-year';
@@ -2741,6 +2852,19 @@ async function placeCard(playerIdx, position) {
   checkPlacement(playerIdx, position);
 }
 
+function showGuessResult(isCorrect, text) {
+  // Full-screen flash
+  var flash = document.createElement('div');
+  flash.className = 'guess-flash ' + (isCorrect ? 'correct' : 'wrong');
+  document.body.appendChild(flash);
+  // Banner
+  var banner = document.createElement('div');
+  banner.className = 'guess-banner ' + (isCorrect ? 'correct' : 'wrong');
+  banner.textContent = text;
+  document.body.appendChild(banner);
+  setTimeout(function() { flash.remove(); banner.remove(); }, 1500);
+}
+
 async function checkPlacement(playerIdx, position) {
   gameState.phase = 'checking';
   var player = gameState.players[playerIdx];
@@ -2766,7 +2890,9 @@ async function checkPlacement(playerIdx, position) {
   var placedCard = cardEls[position];
 
   if (correct) {
+    var correctText = '\u2713 Correct! ' + cardData.song.artist + ' \u2014 ' + (cardData.song.year || '????');
     setGameStatus('Correct! ' + cardData.song.artist + ' (' + (cardData.song.year || '????') + ')', 'correct');
+    showGuessResult(true, correctText);
     if (placedCard) {
       placedCard.classList.add('correct-glow');
     }
@@ -2778,7 +2904,9 @@ async function checkPlacement(playerIdx, position) {
       return;
     }
   } else {
+    var wrongText = '\u2717 Wrong! ' + cardData.song.artist + ' \u2014 ' + (cardData.song.year || '????');
     setGameStatus('Wrong! ' + cardData.song.artist + ' (' + (cardData.song.year || '????') + ')', 'wrong');
+    showGuessResult(false, wrongText);
     if (placedCard) {
       placedCard.classList.add('wrong-shake');
       await sleep(500);
@@ -2905,6 +3033,15 @@ updatePlayPauseButtons = function() {
     gameBtn.innerHTML = sdkIsPlaying ? PAUSE_SVG : PLAY_SVG;
   }
 };
+
+// ==================== RESIZE HANDLER ====================
+var resizeTimer;
+window.addEventListener('resize', function() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function() {
+    if (gameState.active) renderGameBoard();
+  }, 150);
+});
 
 // ==================== SERVICE WORKER ====================
 if ('serviceWorker' in navigator) {
