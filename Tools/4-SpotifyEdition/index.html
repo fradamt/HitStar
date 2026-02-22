@@ -294,6 +294,8 @@ input[type="file"] { display: none; }
 :root {
   --p0: #e74c3c; --p0-dim: rgba(231,76,60,0.15); --p0-glow: rgba(231,76,60,0.35);
   --p1: #3498db; --p1-dim: rgba(52,152,219,0.15); --p1-glow: rgba(52,152,219,0.35);
+  --p0-surface: #241a1e; /* warm tinted dark surface for red player */
+  --p1-surface: #161d28; /* cool tinted dark surface for blue player */
 }
 
 /* Player row */
@@ -301,17 +303,17 @@ input[type="file"] { display: none; }
   background: var(--surface); border-radius: 12px; padding: 12px 14px;
   border: 2px solid transparent; transition: all 0.3s ease;
 }
-.player-row.player-0 { background: linear-gradient(135deg, var(--p0-dim), var(--surface) 60%); border-color: rgba(231,76,60,0.25); }
-.player-row.player-1 { background: linear-gradient(135deg, var(--p1-dim), var(--surface) 60%); border-color: rgba(52,152,219,0.25); }
+.player-row.player-0 { background: linear-gradient(135deg, rgba(231,76,60,0.2), var(--p0-surface)); border-color: rgba(231,76,60,0.3); }
+.player-row.player-1 { background: linear-gradient(135deg, rgba(52,152,219,0.2), var(--p1-surface)); border-color: rgba(52,152,219,0.3); }
 .player-row.player-0.active-turn {
   border-color: var(--p0); box-shadow: 0 0 20px var(--p0-glow), 0 0 40px rgba(231,76,60,0.15);
-  transform: scale(1.02); background: linear-gradient(135deg, rgba(231,76,60,0.25), var(--surface) 60%);
+  transform: scale(1.02); background: linear-gradient(135deg, rgba(231,76,60,0.3), var(--p0-surface));
 }
 .player-row.player-1.active-turn {
   border-color: var(--p1); box-shadow: 0 0 20px var(--p1-glow), 0 0 40px rgba(52,152,219,0.15);
-  transform: scale(1.02); background: linear-gradient(135deg, rgba(52,152,219,0.25), var(--surface) 60%);
+  transform: scale(1.02); background: linear-gradient(135deg, rgba(52,152,219,0.3), var(--p1-surface));
 }
-.player-row:not(.active-turn) { opacity: 0.55; }
+.player-row:not(.active-turn) { opacity: 0.6; }
 .player-row-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 10px;
@@ -714,6 +716,119 @@ input[type="file"] { display: none; }
   75% { opacity: 1; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 }
+
+/* ==================== TOKEN MODE ==================== */
+
+/* Setup modal mode toggle */
+.setup-mode-toggle {
+  display: flex; border-radius: 10px; overflow: hidden;
+  border: 1px solid #444; margin-bottom: 8px;
+}
+.setup-mode-btn {
+  flex: 1; padding: 10px; font-size: 14px; font-weight: 600;
+  background: var(--bg); color: var(--text-dim); border: none;
+  cursor: pointer; transition: background 0.2s, color 0.2s;
+  text-align: center;
+}
+.setup-mode-btn.active {
+  background: var(--accent); color: #000;
+}
+.setup-mode-hint {
+  font-size: 12px; color: var(--text-dim); margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+/* Token counter in player header */
+.player-token-count {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 13px; font-weight: 700; color: #f1c40f;
+  margin-left: 8px;
+}
+
+/* Token controls (active player) */
+.token-controls {
+  margin-bottom: 8px;
+}
+.token-guess-input {
+  background: var(--bg); border: 1px solid #444; border-radius: 8px;
+  color: var(--text); padding: 8px 12px; width: 100%; font-size: 14px;
+  font-family: inherit; margin-bottom: 6px;
+}
+.token-guess-input::placeholder { color: var(--text-dim); }
+.token-actions-row {
+  display: flex; gap: 8px;
+}
+.token-actions-row .btn {
+  flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 10px;
+}
+.token-actions-row .btn:disabled {
+  opacity: 0.35; cursor: not-allowed;
+}
+.token-buy-btn {
+  background: #f1c40f; color: #000;
+}
+.token-buy-btn:hover:not(:disabled) { background: #f4d03f; }
+.token-skip-btn {
+  background: var(--surface2); color: var(--text);
+  border: 1px solid #555;
+}
+.token-skip-btn:hover:not(:disabled) { background: #1a3a5c; }
+
+/* Challenge buzzer */
+.challenge-buzzer {
+  padding: 6px 14px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  border: 2px solid; cursor: pointer;
+  transition: all 0.2s; background: transparent;
+}
+.challenge-buzzer.buzzer-p0 {
+  border-color: var(--p0); color: var(--p0);
+}
+.challenge-buzzer.buzzer-p1 {
+  border-color: var(--p1); color: var(--p1);
+}
+.challenge-buzzer.buzzer-active.buzzer-p0 {
+  background: var(--p0); color: #fff;
+  animation: buzzerPulse0 1s ease-in-out infinite;
+}
+.challenge-buzzer.buzzer-active.buzzer-p1 {
+  background: var(--p1); color: #fff;
+  animation: buzzerPulse1 1s ease-in-out infinite;
+}
+@keyframes buzzerPulse0 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); }
+  50% { box-shadow: 0 0 12px 4px rgba(231,76,60,0.5); }
+}
+@keyframes buzzerPulse1 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52,152,219,0.4); }
+  50% { box-shadow: 0 0 12px 4px rgba(52,152,219,0.5); }
+}
+
+/* Rules modal */
+.rules-modal-body {
+  max-height: 65vh; overflow-y: auto;
+}
+.rules-section { margin-bottom: 18px; }
+.rules-section h3 {
+  font-size: 15px; margin-bottom: 8px; color: var(--accent);
+}
+.rules-section ol, .rules-section ul {
+  padding-left: 20px; font-size: 13px; color: var(--text-dim); line-height: 1.7;
+}
+.rules-section li { margin-bottom: 4px; }
+.rules-action-card {
+  background: var(--bg); border-radius: 10px; padding: 10px 14px;
+  margin-bottom: 8px; border-left: 3px solid #f1c40f;
+}
+.rules-action-card strong { color: #f1c40f; }
+.rules-action-card .rules-cost { font-size: 12px; color: var(--text-dim); }
+
+/* Home rules button */
+.home-rules-btn {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 14px; cursor: pointer; padding: 8px;
+  text-decoration: underline; margin-top: 4px;
+}
+.home-rules-btn:hover { color: var(--text); }
 </style>
 </head>
 <body>
@@ -741,6 +856,7 @@ input[type="file"] { display: none; }
       Start Game
     </button>
   </div>
+  <button class="home-rules-btn" onclick="showRulesModal()">How to Play</button>
   <div class="song-count" id="song-count"></div>
   <div id="session-playlist-indicator"></div>
   <div class="spotify-badge" id="home-spotify-badge">
@@ -960,6 +1076,14 @@ input[type="file"] { display: none; }
         <option value="15">15</option>
       </select>
     </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:13px;color:var(--text-dim);display:block;margin-bottom:6px">Game Mode</label>
+      <div class="setup-mode-toggle">
+        <button class="setup-mode-btn active" id="setup-mode-classic" onclick="setSetupMode('classic')">Classic</button>
+        <button class="setup-mode-btn" id="setup-mode-token" onclick="setSetupMode('token')">Token Mode</button>
+      </div>
+      <div class="setup-mode-hint" id="setup-mode-hint">Place songs in chronological order. Wrong guesses go to the discard pile.</div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeGameSetup()">Cancel</button>
       <button class="btn" onclick="startGame()">Start Game</button>
@@ -985,6 +1109,7 @@ input[type="file"] { display: none; }
       </div>
     </div>
     <span class="game-topbar-status" id="game-status-text"></span>
+    <button class="game-topbar-btn" onclick="showInGameRules()">Rules</button>
     <button class="game-topbar-btn" onclick="quitGame()">Quit</button>
   </div>
   <!-- Player rows -->
@@ -1014,6 +1139,17 @@ input[type="file"] { display: none; }
     <div class="victory-actions">
       <button class="btn" onclick="showGameSetup()">Play Again</button>
       <button class="btn btn-outline" onclick="quitGame()">Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- RULES MODAL -->
+<div class="modal-overlay hidden" id="rules-modal">
+  <div class="modal" style="max-width:480px">
+    <h2>How to Play</h2>
+    <div class="rules-modal-body" id="rules-modal-body"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-outline btn-block" onclick="closeRulesModal()">Close</button>
     </div>
   </div>
 </div>
@@ -1071,6 +1207,12 @@ var SDK_TOKEN_EXPIRY_KEY = 'hitstar_sdk_token_expiry';
 // SVG icon markup for play/pause buttons
 var PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
 var PAUSE_SVG = '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+
+// Token mode constants
+var TOKEN_MAX = 5;
+var TOKEN_COST_BUY = 3;
+var TOKEN_COST_SKIP = 1;
+var TOKEN_COST_CHALLENGE = 1;
 
 // ==================== TOAST NOTIFICATIONS ====================
 var toastTimeout = null;
@@ -2257,15 +2399,18 @@ async function spotifyLookupWithToken() {
 var gameState = {
   active: false,
   players: [
-    { name: 'Player 1', cards: [] },
-    { name: 'Player 2', cards: [] }
+    { name: 'Player 1', cards: [], tokens: 0 },
+    { name: 'Player 2', cards: [], tokens: 0 }
   ],
   currentPlayer: 0,
   currentSong: null,
   discardPile: [],
   phase: 'listening', // listening, placing, revealing, checking
   winCount: 10,
-  usedSongIds: []
+  usedSongIds: [],
+  tokenMode: false,
+  titleGuess: '',
+  challengeActive: -1
 };
 
 function showGameSetup() {
@@ -2279,23 +2424,38 @@ function closeGameSetup() {
   document.getElementById('game-setup-modal').classList.add('hidden');
 }
 
+function setSetupMode(mode) {
+  var classicBtn = document.getElementById('setup-mode-classic');
+  var tokenBtn = document.getElementById('setup-mode-token');
+  var hint = document.getElementById('setup-mode-hint');
+  classicBtn.classList.toggle('active', mode === 'classic');
+  tokenBtn.classList.toggle('active', mode === 'token');
+  hint.textContent = mode === 'token'
+    ? 'Earn tokens by guessing song titles. Spend tokens to buy cards, skip songs, or challenge opponents!'
+    : 'Place songs in chronological order. Wrong guesses go to the discard pile.';
+}
+
 function startGame() {
   var p1 = document.getElementById('setup-p1-name').value.trim() || 'Player 1';
   var p2 = document.getElementById('setup-p2-name').value.trim() || 'Player 2';
   var winCount = parseInt(document.getElementById('setup-win-count').value) || 10;
+  var isTokenMode = document.getElementById('setup-mode-token').classList.contains('active');
 
   gameState = {
     active: true,
     players: [
-      { name: p1, cards: [] },
-      { name: p2, cards: [] }
+      { name: p1, cards: [], tokens: 0 },
+      { name: p2, cards: [], tokens: 0 }
     ],
     currentPlayer: 0,
     currentSong: null,
     discardPile: [],
     phase: 'listening',
     winCount: winCount,
-    usedSongIds: []
+    usedSongIds: [],
+    tokenMode: isTokenMode,
+    titleGuess: '',
+    challengeActive: -1
   };
 
   closeGameSetup();
@@ -2359,6 +2519,8 @@ async function gamePlayNext() {
   gameState.usedSongIds.push(songId);
   gameState.currentSong = song;
   gameState.phase = 'listening';
+  gameState.titleGuess = '';
+  gameState.challengeActive = -1;
 
   setGameStatus('Listen & guess!', '');
   renderGameBoard();
@@ -2383,6 +2545,50 @@ function setGameStatus(text, cls) {
   var el = document.getElementById('game-status-text');
   el.textContent = text;
   el.className = 'game-topbar-status' + (cls ? ' ' + cls : '');
+}
+
+// ==================== FUZZY TITLE MATCHING ====================
+function levenshtein(a, b) {
+  var m = a.length, n = b.length;
+  var dp = [];
+  for (var i = 0; i <= m; i++) {
+    dp[i] = [i];
+    for (var j = 1; j <= n; j++) {
+      dp[i][j] = i === 0 ? j : 0;
+    }
+  }
+  for (var i = 1; i <= m; i++) {
+    for (var j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+function fuzzyTitleMatch(guess, actual) {
+  if (!guess || !actual) return false;
+  // Normalize: lowercase, strip parenthesized/bracketed suffixes, remove punctuation
+  function norm(s) {
+    return s.toLowerCase()
+      .replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '') // strip (feat. X), [Remaster], etc.
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  var g = norm(guess);
+  var a = norm(actual);
+  if (!g || !a) return false;
+  // Exact match
+  if (g === a) return true;
+  // Substring containment (either direction)
+  if (a.indexOf(g) !== -1 || g.indexOf(a) !== -1) return true;
+  // Levenshtein distance within 20% of title length
+  var maxDist = Math.max(1, Math.floor(a.length * 0.2));
+  return levenshtein(g, a) <= maxDist;
 }
 
 function computeCardSize() {
@@ -2435,11 +2641,70 @@ function renderGameBoard() {
       nameEl.appendChild(star);
     }
     header.appendChild(nameEl);
+    // Token counter badge
+    if (gameState.tokenMode) {
+      var tokenBadge = document.createElement('span');
+      tokenBadge.className = 'player-token-count';
+      tokenBadge.textContent = '\uD83E\uDE99 ' + player.tokens;
+      header.appendChild(tokenBadge);
+    }
     var scoreEl = document.createElement('span');
     scoreEl.className = 'player-row-score';
     scoreEl.textContent = player.cards.length + '/' + gameState.winCount;
+    // Challenge buzzer for non-active player during listening phase
+    if (gameState.tokenMode && !isActive && gameState.phase === 'listening' && player.tokens >= TOKEN_COST_CHALLENGE) {
+      var buzzer = document.createElement('button');
+      buzzer.className = 'challenge-buzzer buzzer-p' + p + (gameState.challengeActive === p ? ' buzzer-active' : '');
+      buzzer.textContent = gameState.challengeActive === p ? 'Challenging!' : 'Challenge';
+      (function(pIdx) {
+        buzzer.addEventListener('click', function() {
+          gameState.challengeActive = gameState.challengeActive === pIdx ? -1 : pIdx;
+          renderGameBoard();
+        });
+      })(p);
+      header.appendChild(buzzer);
+    }
     header.appendChild(scoreEl);
     row.appendChild(header);
+
+    // Token controls for active player during listening phase
+    if (gameState.tokenMode && isActive && gameState.phase === 'listening') {
+      var tokenControls = document.createElement('div');
+      tokenControls.className = 'token-controls';
+      var guessInput = document.createElement('input');
+      guessInput.type = 'text';
+      guessInput.className = 'token-guess-input';
+      guessInput.placeholder = 'Guess the song title\u2026';
+      guessInput.value = gameState.titleGuess;
+      guessInput.id = 'token-guess-input';
+      guessInput.addEventListener('input', function(e) {
+        gameState.titleGuess = e.target.value;
+      });
+      tokenControls.appendChild(guessInput);
+
+      var actionsRow = document.createElement('div');
+      actionsRow.className = 'token-actions-row';
+      var buyBtn = document.createElement('button');
+      buyBtn.className = 'btn token-buy-btn';
+      buyBtn.textContent = 'Buy Card (' + TOKEN_COST_BUY + '\uD83E\uDE99)';
+      buyBtn.disabled = player.tokens < TOKEN_COST_BUY;
+      (function(pIdx) {
+        buyBtn.addEventListener('click', function() { tokenBuyCard(pIdx); });
+      })(p);
+      actionsRow.appendChild(buyBtn);
+
+      var skipBtn = document.createElement('button');
+      skipBtn.className = 'btn token-skip-btn';
+      skipBtn.textContent = 'Skip (' + TOKEN_COST_SKIP + '\uD83E\uDE99)';
+      skipBtn.disabled = player.tokens < TOKEN_COST_SKIP;
+      (function(pIdx) {
+        skipBtn.addEventListener('click', function() { tokenSkipCard(pIdx); });
+      })(p);
+      actionsRow.appendChild(skipBtn);
+
+      tokenControls.appendChild(actionsRow);
+      row.appendChild(tokenControls);
+    }
 
     // Card row
     var cardRow = document.createElement('div');
@@ -2541,6 +2806,24 @@ function renderGameBoard() {
     var topCard = document.createElement('div');
     topCard.className = 'discard-pile-card card-p' + last.playerIndex;
 
+    // Album art on discard pile top card
+    var tcArt = document.createElement('img');
+    tcArt.className = 'game-card-art';
+    tcArt.alt = '';
+    tcArt.style.display = 'none';
+    if (last.song.albumArt) {
+      tcArt.src = last.song.albumArt;
+      tcArt.style.display = '';
+    } else if (sdkToken && last.song.artist && last.song.title) {
+      searchSpotifyId(last.song).then(function() {
+        if (last.song.albumArt) {
+          tcArt.src = last.song.albumArt;
+          tcArt.style.display = '';
+        }
+      });
+    }
+    topCard.appendChild(tcArt);
+
     var tcYear = document.createElement('div');
     tcYear.className = 'game-card-year';
     tcYear.textContent = last.song.year || '????';
@@ -2573,6 +2856,14 @@ function renderGameBoard() {
   pilesContainer.appendChild(pile);
 
   body.appendChild(pilesContainer);
+
+  // Auto-focus title guess input in token mode
+  if (gameState.tokenMode && gameState.phase === 'listening') {
+    setTimeout(function() {
+      var inp = document.getElementById('token-guess-input');
+      if (inp) inp.focus();
+    }, 50);
+  }
 }
 
 function createGameCard(cardData, playerIdx) {
@@ -2757,10 +3048,73 @@ function createPlacementSlot(playerIdx, position, isEmpty) {
   return slot;
 }
 
+// ==================== TOKEN ACTIONS ====================
+function findCorrectPosition(player, song) {
+  var year = song.year || 0;
+  for (var i = 0; i < player.cards.length; i++) {
+    if (year <= (player.cards[i].song.year || 0)) return i;
+  }
+  return player.cards.length;
+}
+
+async function tokenBuyCard(playerIdx) {
+  if (gameState.phase !== 'listening') return;
+  if (playerIdx !== gameState.currentPlayer) return;
+  var player = gameState.players[playerIdx];
+  if (player.tokens < TOKEN_COST_BUY) return;
+  if (!gameState.currentSong) return;
+
+  player.tokens -= TOKEN_COST_BUY;
+  var song = gameState.currentSong;
+  var pos = findCorrectPosition(player, song);
+  player.cards.splice(pos, 0, { song: song });
+
+  showToast('Bought card! ' + song.artist + ' (' + (song.year || '????') + ')', 'success', 2500);
+  updateNowPlayingBar(song, false);
+
+  // Check win condition
+  if (player.cards.length >= gameState.winCount) {
+    renderGameBoard();
+    showVictory(playerIdx);
+    return;
+  }
+
+  // Continue turn with next song (same player)
+  gamePlayNext();
+}
+
+async function tokenSkipCard(playerIdx) {
+  if (gameState.phase !== 'listening') return;
+  if (playerIdx !== gameState.currentPlayer) return;
+  var player = gameState.players[playerIdx];
+  if (player.tokens < TOKEN_COST_SKIP) return;
+  if (!gameState.currentSong) return;
+
+  player.tokens -= TOKEN_COST_SKIP;
+  var song = gameState.currentSong;
+  gameState.discardPile.push({ song: song, playerIndex: playerIdx });
+
+  showToast('Skipped: ' + song.artist, 'success', 2000);
+
+  // Continue turn with next song (same player)
+  gamePlayNext();
+}
+
 async function placeCard(playerIdx, position) {
   if (gameState.phase !== 'listening') return;
   if (playerIdx !== gameState.currentPlayer) return;
   if (!gameState.currentSong) return;
+
+  // Token mode: evaluate title guess before placing
+  if (gameState.tokenMode && gameState.titleGuess.trim()) {
+    var song = gameState.currentSong;
+    var player = gameState.players[playerIdx];
+    if (fuzzyTitleMatch(gameState.titleGuess, song.title) && player.tokens < TOKEN_MAX) {
+      player.tokens += 1;
+      showToast('Correct title! +1 token (' + player.tokens + '/' + TOKEN_MAX + ')', 'success', 2500);
+    }
+    gameState.titleGuess = '';
+  }
 
   gameState.phase = 'placing';
   var song = gameState.currentSong;
@@ -2889,12 +3243,22 @@ async function checkPlacement(playerIdx, position) {
   var cardEls = activeRow ? activeRow.querySelectorAll('.game-card') : [];
   var placedCard = cardEls[position];
 
+  // Challenge resolution (token mode)
+  var challengerIdx = gameState.tokenMode ? gameState.challengeActive : -1;
+  var challengerValid = challengerIdx >= 0 && challengerIdx !== playerIdx
+    && gameState.players[challengerIdx].tokens >= TOKEN_COST_CHALLENGE;
+
   if (correct) {
     var correctText = '\u2713 Correct! ' + cardData.song.artist + ' \u2014 ' + (cardData.song.year || '????');
     setGameStatus('Correct! ' + cardData.song.artist + ' (' + (cardData.song.year || '????') + ')', 'correct');
     showGuessResult(true, correctText);
     if (placedCard) {
       placedCard.classList.add('correct-glow');
+    }
+    // Challenge failed — challenger loses token for nothing
+    if (challengerValid) {
+      gameState.players[challengerIdx].tokens -= TOKEN_COST_CHALLENGE;
+      showToast(gameState.players[challengerIdx].name + ' challenged and lost a token!', 'error', 3000);
     }
     await sleep(1200);
 
@@ -2914,12 +3278,32 @@ async function checkPlacement(playerIdx, position) {
       placedCard.classList.add('wrong-slide');
       await sleep(400);
     }
-    // Remove card and add to discard
+    // Remove card from active player
     player.cards.splice(position, 1);
-    gameState.discardPile.push({ song: cardData.song, playerIndex: playerIdx });
-    renderGameBoard();
-    await sleep(400);
+
+    // Challenge success — challenger gets the card
+    if (challengerValid) {
+      var challenger = gameState.players[challengerIdx];
+      challenger.tokens -= TOKEN_COST_CHALLENGE;
+      var cPos = findCorrectPosition(challenger, cardData.song);
+      challenger.cards.splice(cPos, 0, { song: cardData.song });
+      showToast(challenger.name + ' challenged successfully and gets the card!', 'success', 3000);
+      renderGameBoard();
+      await sleep(400);
+      // Check challenger win condition
+      if (challenger.cards.length >= gameState.winCount) {
+        showVictory(challengerIdx);
+        return;
+      }
+    } else {
+      // Normal discard
+      gameState.discardPile.push({ song: cardData.song, playerIndex: playerIdx });
+      renderGameBoard();
+      await sleep(400);
+    }
   }
+
+  gameState.challengeActive = -1;
 
   // Stay on current player's turn until deck is clicked
   gameState.phase = 'waiting';
@@ -2998,6 +3382,85 @@ function showDiscardModal() {
 
 function closeDiscardModal() {
   document.getElementById('discard-modal').classList.add('hidden');
+}
+
+// ==================== RULES ====================
+function createRulesElement(tag, text, styles) {
+  var el = document.createElement(tag);
+  if (text) el.textContent = text;
+  if (styles) {
+    for (var k in styles) el.style[k] = styles[k];
+  }
+  return el;
+}
+
+function showRulesModal(modeFilter) {
+  var body = document.getElementById('rules-modal-body');
+  body.textContent = '';
+
+  // Classic rules section
+  var classicH = createRulesElement('h3', 'Classic Mode');
+  classicH.style.cssText = 'font-size:15px;margin-bottom:8px;color:var(--accent)';
+  body.appendChild(classicH);
+
+  var classicSteps = [
+    'Each turn, a song plays. Listen and decide where it belongs in your timeline.',
+    'Click a + slot to place the card in chronological order.',
+    'If the year is in the correct position, you keep the card.',
+    'If wrong, the card goes to the discard pile.',
+    'After each placement, click the deck to pass to the next player.',
+    'First player to reach the target number of cards wins!'
+  ];
+  var ol = document.createElement('ol');
+  ol.style.cssText = 'padding-left:20px;font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:18px';
+  classicSteps.forEach(function(step) {
+    var li = document.createElement('li');
+    li.textContent = step;
+    li.style.marginBottom = '4px';
+    ol.appendChild(li);
+  });
+  body.appendChild(ol);
+
+  // Token rules (shown when modeFilter is 'token' or unset from home)
+  if (!modeFilter || modeFilter === 'token') {
+    var tokenH = createRulesElement('h3', 'Token Mode');
+    tokenH.style.cssText = 'font-size:15px;margin-bottom:8px;color:var(--accent)';
+    body.appendChild(tokenH);
+
+    var tokenDesc = createRulesElement('p', 'Builds on Classic rules. Earn tokens by guessing song titles, then spend them on powerful actions.');
+    tokenDesc.style.cssText = 'font-size:13px;color:var(--text-dim);margin-bottom:10px';
+    body.appendChild(tokenDesc);
+
+    var actions = [
+      { name: 'Earn Tokens', desc: 'Type the song title before placing \u2014 correct guess = +1 token (max ' + TOKEN_MAX + ')' },
+      { name: 'Buy Card', desc: 'Cost: ' + TOKEN_COST_BUY + ' tokens \u2014 Auto-places the current song correctly in your timeline. Your turn continues.' },
+      { name: 'Skip', desc: 'Cost: ' + TOKEN_COST_SKIP + ' token \u2014 Discard the current song and draw a new one. Your turn continues.' },
+      { name: 'Challenge', desc: 'Cost: ' + TOKEN_COST_CHALLENGE + ' token \u2014 Press the buzzer before your opponent places. If they place wrong, you get the card! If they place correctly, you lose the token.' }
+    ];
+    actions.forEach(function(a) {
+      var card = document.createElement('div');
+      card.className = 'rules-action-card';
+      var strong = document.createElement('strong');
+      strong.textContent = a.name;
+      card.appendChild(strong);
+      card.appendChild(document.createElement('br'));
+      var cost = document.createElement('span');
+      cost.className = 'rules-cost';
+      cost.textContent = a.desc;
+      card.appendChild(cost);
+      body.appendChild(card);
+    });
+  }
+
+  document.getElementById('rules-modal').classList.remove('hidden');
+}
+
+function closeRulesModal() {
+  document.getElementById('rules-modal').classList.add('hidden');
+}
+
+function showInGameRules() {
+  showRulesModal(gameState.tokenMode ? 'token' : 'classic');
 }
 
 function sleep(ms) {
