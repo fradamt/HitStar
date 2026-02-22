@@ -1323,21 +1323,109 @@ function showToast(msg, type, duration) {
   }, duration);
 }
 
+// ==================== TOKEN MANAGEMENT ====================
+function isTokenValid() {
+  return sdkToken && Date.now() < sdkTokenExpiry - 60000; // 1 min buffer
+}
+
+function scheduleTokenRefresh() {
+  if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
+  if (!sdkRefreshToken || !sdkTokenExpiry) return;
+  // Refresh 5 minutes before expiry (or immediately if already within window)
+  var refreshAt = sdkTokenExpiry - 5 * 60 * 1000;
+  var delay = Math.max(0, refreshAt - Date.now());
+  tokenRefreshTimer = setTimeout(function() {
+    refreshAccessToken();
+  }, delay);
+}
+
+async function refreshAccessToken() {
+  if (!sdkRefreshToken || tokenRefreshInProgress) return false;
+  tokenRefreshInProgress = true;
+  try {
+    var resp = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(sdkRefreshToken)
+        + '&client_id=' + encodeURIComponent(SPOTIFY_CLIENT_ID)
+    });
+    if (!resp.ok) {
+      tokenRefreshInProgress = false;
+      return false;
+    }
+    var data = await resp.json();
+    if (!data.access_token) {
+      tokenRefreshInProgress = false;
+      return false;
+    }
+    sdkToken = data.access_token;
+    sdkTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+    if (data.refresh_token) {
+      sdkRefreshToken = data.refresh_token;
+      localStorage.setItem(SDK_REFRESH_TOKEN_KEY, sdkRefreshToken);
+    }
+    localStorage.setItem(SDK_TOKEN_KEY, sdkToken);
+    localStorage.setItem(SDK_TOKEN_EXPIRY_KEY, String(sdkTokenExpiry));
+    // Also update the spotifyToken alias if it was set (for import/lookup flows)
+    if (spotifyToken) spotifyToken = sdkToken;
+    scheduleTokenRefresh();
+    tokenRefreshInProgress = false;
+    return true;
+  } catch (e) {
+    tokenRefreshInProgress = false;
+    return false;
+  }
+}
+
+async function spotifyFetch(url, options) {
+  options = options || {};
+  if (!options.headers) options.headers = {};
+  options.headers['Authorization'] = 'Bearer ' + sdkToken;
+
+  // Proactively refresh if token is near expiry
+  if (!isTokenValid() && sdkRefreshToken) {
+    var refreshed = await refreshAccessToken();
+    if (refreshed) {
+      options.headers['Authorization'] = 'Bearer ' + sdkToken;
+    }
+  }
+
+  var resp = await fetch(url, options);
+
+  // Handle 401: try refresh once, then retry
+  if (resp.status === 401 && sdkRefreshToken) {
+    var refreshed = await refreshAccessToken();
+    if (refreshed) {
+      options.headers['Authorization'] = 'Bearer ' + sdkToken;
+      resp = await fetch(url, options);
+    }
+  }
+
+  // Handle 429: respect Retry-After and retry once
+  if (resp.status === 429) {
+    var retryAfter = parseInt(resp.headers.get('Retry-After') || '2');
+    await new Promise(function(r) { setTimeout(r, retryAfter * 1000); });
+    resp = await fetch(url, options);
+  }
+
+  return resp;
+}
+
 // ==================== SPOTIFY WEB PLAYBACK SDK ====================
 window.onSpotifyWebPlaybackSDKReady = function() {
   if (sdkToken && Date.now() < sdkTokenExpiry) {
-    initializeSDKPlayer(sdkToken);
+    initializeSDKPlayer();
   }
 };
 
-function initializeSDKPlayer(token) {
+function initializeSDKPlayer() {
   if (sdkPlayer) {
     sdkPlayer.disconnect();
   }
 
   sdkPlayer = new Spotify.Player({
     name: 'HitStar Player',
-    getOAuthToken: function(cb) { cb(token); },
+    getOAuthToken: function(cb) { cb(sdkToken); },
     volume: 0.8
   });
 
@@ -1445,14 +1533,11 @@ function connectSpotifySDK() {
 
 // Transfer playback back to HitStar Player when another device took over
 async function transferToHitStar() {
-  if (!sdkDeviceId || !sdkToken) return false;
+  if (!sdkDeviceId || !isTokenValid()) return false;
   try {
-    var resp = await fetch('https://api.spotify.com/v1/me/player', {
+    var resp = await spotifyFetch('https://api.spotify.com/v1/me/player', {
       method: 'PUT',
-      headers: {
-        'Authorization': 'Bearer ' + sdkToken,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_ids: [sdkDeviceId], play: false })
     });
     if (resp.status === 204 || resp.status === 200) {
@@ -1504,16 +1589,15 @@ function updatePlayPauseButtons() {
 
 async function togglePlayback() {
   if (externalDeviceId) {
-    if (!sdkToken) return;
+    if (!isTokenValid()) return;
     var endpoint = sdkIsPlaying ? 'pause' : 'play';
     sdkIsPlaying = !sdkIsPlaying;
     updatePlayPauseButtons();
     try {
-      var resp = await fetch('https://api.spotify.com/v1/me/player/' + endpoint, {
-        method: 'PUT',
-        headers: { 'Authorization': 'Bearer ' + sdkToken }
+      var resp = await spotifyFetch('https://api.spotify.com/v1/me/player/' + endpoint, {
+        method: 'PUT'
       });
-      if (!resp.ok) {
+      if (!resp || !resp.ok) {
         sdkIsPlaying = !sdkIsPlaying;
         updatePlayPauseButtons();
         showToast('Playback toggle failed', 'error');
@@ -1542,16 +1626,15 @@ async function seekPlayback(event, wrapEl) {
   var pct = Math.max(0, Math.min(1, x / rect.width));
   var posMs = Math.floor(pct * sdkDuration);
   if (externalDeviceId) {
-    if (!sdkToken) return;
+    if (!isTokenValid()) return;
     var prevPosition = sdkCurrentPosition;
     sdkCurrentPosition = posMs;
     updateProgressBars();
     try {
-      var resp = await fetch('https://api.spotify.com/v1/me/player/seek?position_ms=' + posMs, {
-        method: 'PUT',
-        headers: { 'Authorization': 'Bearer ' + sdkToken }
+      var resp = await spotifyFetch('https://api.spotify.com/v1/me/player/seek?position_ms=' + posMs, {
+        method: 'PUT'
       });
-      if (!resp.ok) {
+      if (!resp || !resp.ok) {
         sdkCurrentPosition = prevPosition;
         updateProgressBars();
         showToast('Seek failed', 'error');
@@ -1605,11 +1688,17 @@ function resetProgressBars() {
 
 // ==================== EXTERNAL DEVICE POLLING ====================
 function pollExternalState() {
-  if (!externalDeviceId || !sdkToken) return;
+  if (!externalDeviceId || !isTokenValid()) return;
   fetch('https://api.spotify.com/v1/me/player', {
     headers: { 'Authorization': 'Bearer ' + sdkToken }
   }).then(function(resp) {
     if (resp.status === 204) return null; // no active playback
+    if (resp.status === 401) {
+      // Token expired — attempt refresh
+      refreshAccessToken();
+      return null;
+    }
+    if (!resp.ok) return null;
     return resp.json();
   }).then(function(data) {
     if (!data || !externalDeviceId) return;
@@ -1647,7 +1736,7 @@ function clearPlayerError() {
 
 // ==================== DEVICE PICKER ====================
 async function fetchDevices() {
-  if (!sdkToken) return { devices: [], activeDevice: null };
+  if (!isTokenValid()) return { devices: [], activeDevice: null };
   try {
     var headers = { 'Authorization': 'Bearer ' + sdkToken };
     var [devResp, playerResp] = await Promise.all([
@@ -1856,15 +1945,25 @@ function init() {
   renderSongList();
   renderCategoryFilters();
 
-  // Restore SDK token from storage if still valid
+  // Restore SDK token and refresh token from storage
   var storedToken = localStorage.getItem(SDK_TOKEN_KEY);
   var storedExpiry = parseInt(localStorage.getItem(SDK_TOKEN_EXPIRY_KEY) || '0');
+  var storedRefresh = localStorage.getItem(SDK_REFRESH_TOKEN_KEY);
+  if (storedRefresh) sdkRefreshToken = storedRefresh;
   if (storedToken && Date.now() < storedExpiry) {
     sdkToken = storedToken;
     sdkTokenExpiry = storedExpiry;
+    scheduleTokenRefresh();
     if (window.Spotify && window.Spotify.Player) {
-      initializeSDKPlayer(sdkToken);
+      initializeSDKPlayer();
     }
+  } else if (storedRefresh) {
+    // Token expired but we have a refresh token — try to refresh now
+    refreshAccessToken().then(function(ok) {
+      if (ok && window.Spotify && window.Spotify.Player && !sdkReady) {
+        initializeSDKPlayer();
+      }
+    });
   }
 
   // Check for Spotify OAuth PKCE callback (?code=...)
@@ -1926,6 +2025,11 @@ async function handleAuthCode(code, action) {
     showToast('Failed to connect to Spotify. Please try again.', 'error');
     return;
   }
+  // Store refresh token from PKCE exchange
+  if (data.refresh_token) {
+    sdkRefreshToken = data.refresh_token;
+    localStorage.setItem(SDK_REFRESH_TOKEN_KEY, sdkRefreshToken);
+  }
   applyToken(data.access_token, data.expires_in || 3600, action);
 }
 
@@ -1935,9 +2039,10 @@ function applyToken(token, expiresIn, action) {
   sdkTokenExpiry = Date.now() + expiresIn * 1000;
   localStorage.setItem(SDK_TOKEN_KEY, sdkToken);
   localStorage.setItem(SDK_TOKEN_EXPIRY_KEY, String(sdkTokenExpiry));
+  scheduleTokenRefresh();
 
   if (window.Spotify && window.Spotify.Player && !sdkReady) {
-    initializeSDKPlayer(sdkToken);
+    initializeSDKPlayer();
   }
 
   if (action === 'playlist' || action === 'playlist-source') {
@@ -2102,12 +2207,10 @@ async function playSong(song) {
 // Look up a Spotify track ID via the Search API.
 // Caches the result on the song object and in localStorage.
 async function searchSpotifyId(song) {
-  if (!sdkToken || !song.artist || !song.title) return null;
+  if (!isTokenValid() || !song.artist || !song.title) return null;
   try {
     var q = encodeURIComponent('track:' + song.title + ' artist:' + song.artist);
-    var resp = await fetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=1', {
-      headers: { 'Authorization': 'Bearer ' + sdkToken }
-    });
+    var resp = await spotifyFetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=1');
     if (!resp.ok) return null;
     var data = await resp.json();
     var tracks = data.tracks && data.tracks.items;
@@ -2147,19 +2250,16 @@ async function playTrackById(trackId) {
   } else if (!externalDeviceId && sdkDeviceId) {
     url += '?device_id=' + sdkDeviceId;
   }
-  var resp = await fetch(url, {
+  var resp = await spotifyFetch(url, {
     method: 'PUT',
-    headers: {
-      'Authorization': 'Bearer ' + sdkToken,
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uris: ['spotify:track:' + trackId] })
   });
   return resp;
 }
 
 async function startSDKPlayback(song) {
-  if (!sdkToken) return false;
+  if (!isTokenValid()) return false;
   if (!externalDeviceId && (!sdkReady || !sdkDeviceId)) return false;
 
   // Always verify the track ID via search to catch wrong-song mappings.
@@ -2761,20 +2861,27 @@ async function requireSpotifyAuth(action) {
 
 async function exchangeCodeForToken(code) {
   var verifier = localStorage.getItem(PKCE_VERIFIER_KEY);
-  localStorage.removeItem(PKCE_VERIFIER_KEY);
   if (!verifier) return null;
 
   var redirectUri = window.location.origin + window.location.pathname;
-  var resp = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'grant_type=authorization_code&code=' + encodeURIComponent(code)
-      + '&redirect_uri=' + encodeURIComponent(redirectUri)
-      + '&client_id=' + encodeURIComponent(SPOTIFY_CLIENT_ID)
-      + '&code_verifier=' + encodeURIComponent(verifier)
-  });
-  if (!resp.ok) return null;
-  return await resp.json();
+  try {
+    var resp = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=authorization_code&code=' + encodeURIComponent(code)
+        + '&redirect_uri=' + encodeURIComponent(redirectUri)
+        + '&client_id=' + encodeURIComponent(SPOTIFY_CLIENT_ID)
+        + '&code_verifier=' + encodeURIComponent(verifier)
+    });
+    if (!resp.ok) return null;
+    var data = await resp.json();
+    // Only delete verifier AFTER successful exchange
+    localStorage.removeItem(PKCE_VERIFIER_KEY);
+    return data;
+  } catch (e) {
+    // Network error — verifier is preserved so user can retry
+    return null;
+  }
 }
 
 // ==================== SPOTIFY PLAYLIST IMPORT ====================
@@ -2916,6 +3023,11 @@ async function spotifyLookupWithToken() {
         i--; continue;
       }
 
+      if (resp.status === 401) {
+        statusEl.textContent = 'Token expired after ' + found + ' lookups. Reconnect to continue.';
+        break;
+      }
+
       if (resp.ok) {
         var data = await resp.json();
         if (data.tracks && data.tracks.items && data.tracks.items.length > 0) {
@@ -2933,7 +3045,9 @@ async function spotifyLookupWithToken() {
 
   saveSongsToStorage();
   renderSongList();
-  statusEl.textContent = 'Done! Found Spotify IDs for ' + found + '/' + missing.length + ' songs.';
+  if (!statusEl.textContent.includes('Token expired')) {
+    statusEl.textContent = 'Done! Found Spotify IDs for ' + found + '/' + missing.length + ' songs.';
+  }
   spotifyToken = null;
 }
 
