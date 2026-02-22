@@ -1612,12 +1612,40 @@ function clearPlayerError() {
 async function fetchDevices() {
   if (!sdkToken) return [];
   try {
-    var resp = await fetch('https://api.spotify.com/v1/me/player/devices', {
-      headers: { 'Authorization': 'Bearer ' + sdkToken }
-    });
-    if (!resp.ok) return [];
-    var data = await resp.json();
-    return data.devices || [];
+    // Fetch device list and current player state in parallel
+    var headers = { 'Authorization': 'Bearer ' + sdkToken };
+    var [devResp, playerResp] = await Promise.all([
+      fetch('https://api.spotify.com/v1/me/player/devices', { headers: headers }),
+      fetch('https://api.spotify.com/v1/me/player', { headers: headers })
+    ]);
+
+    var devices = [];
+    if (devResp.ok) {
+      var devData = await devResp.json();
+      devices = devData.devices || [];
+    }
+
+    // The currently active device may not appear in /devices (e.g. Sonos groups).
+    // Merge it in from /me/player if missing.
+    if (playerResp.ok && playerResp.status !== 204) {
+      try {
+        var playerData = await playerResp.json();
+        if (playerData && playerData.device && playerData.device.id) {
+          var activeDevice = playerData.device;
+          var found = devices.some(function(d) { return d.id === activeDevice.id; });
+          if (!found) {
+            devices.push({
+              id: activeDevice.id,
+              name: activeDevice.name,
+              type: activeDevice.type,
+              is_active: true
+            });
+          }
+        }
+      } catch (e) { /* ignore parse errors for 204 etc */ }
+    }
+
+    return devices;
   } catch (e) {
     return [];
   }
