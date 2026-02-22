@@ -1201,8 +1201,7 @@ input[type="file"] { display: none; }
 // ==================== STATE ====================
 var currentSong = null;
 var SPOTIFY_CLIENT_ID = '487c104a2e1745778856e769dec3c079';
-var gameSettings = { autoReveal: 'no', activeCategories: [], spotifyClientId: SPOTIFY_CLIENT_ID };
-var spotifyToken = null;
+var gameSettings = { autoReveal: 'no', spotifyClientId: SPOTIFY_CLIENT_ID };
 var pendingAction = null;
 
 // SDK playback state
@@ -1237,7 +1236,6 @@ var playlistSearchResults = [];
 var myPlaylistsOffset = 0;
 var myPlaylistsTotal = 0;
 
-var STORAGE_KEY = 'hitstar_songs';
 var SETTINGS_KEY = 'hitstar_settings';
 var PENDING_KEY = 'hitstar_pending_action';
 var SDK_TOKEN_KEY = 'hitstar_sdk_token';
@@ -1460,8 +1458,6 @@ async function refreshAccessToken() {
     }
     localStorage.setItem(SDK_TOKEN_KEY, sdkToken);
     localStorage.setItem(SDK_TOKEN_EXPIRY_KEY, String(sdkTokenExpiry));
-    // Also update the spotifyToken alias if it was set (for import/lookup flows)
-    if (spotifyToken) spotifyToken = sdkToken;
     scheduleTokenRefresh();
     tokenRefreshInProgress = false;
     return true;
@@ -2034,6 +2030,8 @@ function closeDevicePicker() {
 // ==================== INIT ====================
 function init() {
   loadSettings();
+  loadRecentPlaylists();
+  loadBuiltinPlaylist(); // preload in background
 
   // Restore SDK token and refresh token from storage
   var storedToken = localStorage.getItem(SDK_TOKEN_KEY);
@@ -2119,11 +2117,6 @@ function applyToken(token, expiresIn, action) {
 
   if (window.Spotify && window.Spotify.Player && !sdkReady) {
     initializeSDKPlayer();
-  }
-
-  if (action === 'lookup') {
-    spotifyToken = token;
-    spotifyLookupWithToken();
   }
 }
 
@@ -2740,67 +2733,6 @@ async function exchangeCodeForToken(code) {
     // Network error — verifier is preserved so user can retry
     return null;
   }
-}
-
-// ==================== SPOTIFY TRACK LOOKUP ====================
-function spotifyLookupAll() {
-  var missing = songs.filter(function(s) { return !s.spotifyId; });
-  if (missing.length === 0) {
-    alert('All songs already have Spotify Track IDs!');
-    return;
-  }
-  requireSpotifyAuth('lookup');
-}
-
-async function spotifyLookupWithToken() {
-  if (!spotifyToken) return;
-
-  var missing = songs.filter(function(s) { return !s.spotifyId; });
-  var statusEl = document.getElementById('lookup-status');
-  statusEl.textContent = 'Looking up ' + missing.length + ' songs...';
-  showScreen('settings');
-
-  var found = 0;
-  for (var i = 0; i < missing.length; i++) {
-    var s = missing[i];
-    statusEl.textContent = 'Looking up ' + (i + 1) + '/' + missing.length + ': ' + s.artist + ' - ' + s.title;
-
-    try {
-      var query = encodeURIComponent('track:' + s.title + ' artist:' + s.artist);
-      var resp = await fetch('https://api.spotify.com/v1/search?q=' + query + '&type=track&limit=1', {
-        headers: { 'Authorization': 'Bearer ' + spotifyToken }
-      });
-
-      if (resp.status === 429) {
-        var retry = parseInt(resp.headers.get('Retry-After') || '2');
-        await new Promise(function(r) { setTimeout(r, retry * 1000); });
-        i--; continue;
-      }
-
-      if (resp.status === 401) {
-        statusEl.textContent = 'Token expired after ' + found + ' lookups. Reconnect to continue.';
-        break;
-      }
-
-      if (resp.ok) {
-        var data = await resp.json();
-        if (data.tracks && data.tracks.items && data.tracks.items.length > 0) {
-          var idx = songs.indexOf(s);
-          if (idx >= 0) {
-            songs[idx].spotifyId = data.tracks.items[0].id;
-            found++;
-          }
-        }
-      }
-    } catch (e) {}
-
-    await new Promise(function(r) { setTimeout(r, 100); });
-  }
-
-  if (!statusEl.textContent.includes('Token expired')) {
-    statusEl.textContent = 'Done! Found Spotify IDs for ' + found + '/' + missing.length + ' songs.';
-  }
-  spotifyToken = null;
 }
 
 // ==================== GAME BOARD ====================
