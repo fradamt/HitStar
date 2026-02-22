@@ -1624,24 +1624,51 @@ async function fetchDevices() {
 }
 
 async function showDevicePicker() {
+  document.getElementById('device-picker-modal').classList.remove('hidden');
+  await refreshDeviceList();
+}
+
+async function refreshDeviceList() {
   var list = document.getElementById('device-picker-list');
   list.textContent = 'Loading devices...';
-  document.getElementById('device-picker-modal').classList.remove('hidden');
 
   var devices = await fetchDevices();
   list.textContent = '';
 
   if (devices.length === 0) {
-    list.textContent = 'No devices found. Make sure Spotify is open on at least one device.';
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:13px">No devices found. Make sure Spotify is open on at least one device.</p>';
+    appendRefreshButton(list);
     return;
   }
 
+  // Merge duplicate HitStar Player entries (SDK device may appear twice)
+  var seen = {};
+  var merged = [];
   devices.forEach(function(d) {
+    // Treat any device named "HitStar Player" as the SDK device
+    if (d.name === 'HitStar Player' || d.id === sdkDeviceId) {
+      if (!seen['__hitstar__']) {
+        seen['__hitstar__'] = true;
+        merged.push({ id: sdkDeviceId || d.id, name: 'HitStar Player', type: d.type, is_active: d.is_active, _isSDK: true });
+      }
+    } else {
+      merged.push(d);
+    }
+  });
+
+  // Sort: selected first, then active, then alphabetical
+  merged.sort(function(a, b) {
+    var aSelected = a._isSDK ? !externalDeviceId : a.id === externalDeviceId;
+    var bSelected = b._isSDK ? !externalDeviceId : b.id === externalDeviceId;
+    if (aSelected !== bSelected) return aSelected ? -1 : 1;
+    if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  merged.forEach(function(d) {
     var item = document.createElement('button');
     item.className = 'device-item';
-    var isSelected = externalDeviceId
-      ? d.id === externalDeviceId
-      : (d.id === sdkDeviceId);
+    var isSelected = d._isSDK ? !externalDeviceId : (d.id === externalDeviceId);
     if (isSelected) item.classList.add('selected');
 
     var icon = d.type === 'Speaker' ? '\uD83D\uDD0A'
@@ -1650,19 +1677,34 @@ async function showDevicePicker() {
       : d.type === 'TV' ? '\uD83D\uDCFA'
       : d.type === 'CastVideo' ? '\uD83D\uDCFA'
       : d.type === 'Game_console' ? '\uD83C\uDFAE'
+      : d.type === 'Automobile' ? '\uD83D\uDE97'
       : '\uD83C\uDFB5';
 
-    item.textContent = icon + ' ' + d.name;
-    if (d.id === sdkDeviceId) {
-      item.textContent += ' (this browser)';
-    }
+    var label = icon + ' ' + d.name;
+    if (d._isSDK) label += ' (this browser)';
+    item.textContent = label;
 
     item.addEventListener('click', function() {
-      selectDevice(d.id === sdkDeviceId ? null : d.id, d.name);
+      selectDevice(d._isSDK ? null : d.id, d.name);
       closeDevicePicker();
     });
     list.appendChild(item);
   });
+
+  appendRefreshButton(list);
+}
+
+function appendRefreshButton(container) {
+  var refreshBtn = document.createElement('button');
+  refreshBtn.className = 'btn btn-sm btn-outline';
+  refreshBtn.style.cssText = 'margin-top:12px;width:100%;';
+  refreshBtn.textContent = '\u21BB Refresh devices';
+  refreshBtn.addEventListener('click', function() { refreshDeviceList(); });
+  container.appendChild(refreshBtn);
+  var hint = document.createElement('p');
+  hint.style.cssText = 'font-size:11px;color:var(--text-dim);margin-top:8px;text-align:center;';
+  hint.textContent = 'Speakers and smart devices must be awake and on the same network to appear.';
+  container.appendChild(hint);
 }
 
 function selectDevice(deviceId, name) {
