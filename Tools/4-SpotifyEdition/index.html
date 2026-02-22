@@ -829,6 +829,45 @@ input[type="file"] { display: none; }
   text-decoration: underline; margin-top: 4px;
 }
 .home-rules-btn:hover { color: var(--text); }
+
+/* Title judgement banner */
+.title-judge {
+  position: fixed; top: 56px; left: 50%; transform: translateX(-50%);
+  z-index: 220; border-radius: 14px; padding: 12px 18px;
+  background: var(--surface); border: 2px solid #444;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  text-align: center; min-width: 240px; max-width: 90vw;
+  animation: bannerSlideIn 0.2s ease-out;
+}
+@keyframes bannerSlideIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.title-judge.matched { border-color: var(--accent); }
+.title-judge.no-match { border-color: var(--danger); }
+.title-judge-verdict {
+  font-size: 15px; font-weight: 700; margin-bottom: 8px;
+}
+.title-judge.matched .title-judge-verdict { color: var(--accent); }
+.title-judge.no-match .title-judge-verdict { color: var(--danger); }
+.title-judge-detail {
+  font-size: 12px; color: var(--text-dim); margin-bottom: 10px;
+}
+.title-judge-actions {
+  display: flex; gap: 8px; justify-content: center;
+}
+.title-judge-actions button {
+  padding: 7px 18px; border-radius: 10px; font-size: 13px;
+  font-weight: 600; cursor: pointer; border: none;
+  transition: transform 0.1s;
+}
+.title-judge-actions button:active { transform: scale(0.95); }
+.title-judge-accept {
+  background: var(--accent); color: #000;
+}
+.title-judge-override {
+  background: var(--surface2); color: var(--text); border: 1px solid #555 !important;
+}
 </style>
 </head>
 <body>
@@ -2555,48 +2594,64 @@ function setGameStatus(text, cls) {
   el.className = 'game-topbar-status' + (cls ? ' ' + cls : '');
 }
 
-// ==================== FUZZY TITLE MATCHING ====================
-function levenshtein(a, b) {
-  var m = a.length, n = b.length;
-  var dp = [];
-  for (var i = 0; i <= m; i++) {
-    dp[i] = [i];
-    for (var j = 1; j <= n; j++) {
-      dp[i][j] = i === 0 ? j : 0;
-    }
-  }
-  for (var i = 1; i <= m; i++) {
-    for (var j = 1; j <= n; j++) {
-      if (a[i - 1] === b[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
-      } else {
-        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-      }
-    }
-  }
-  return dp[m][n];
+// ==================== TITLE MATCHING ====================
+function normTitle(s) {
+  return s.toLowerCase()
+    .replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '') // strip (feat. X), [Remaster], etc.
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function fuzzyTitleMatch(guess, actual) {
+function titleMatch(guess, actual) {
   if (!guess || !actual) return false;
-  // Normalize: lowercase, strip parenthesized/bracketed suffixes, remove punctuation
-  function norm(s) {
-    return s.toLowerCase()
-      .replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '') // strip (feat. X), [Remaster], etc.
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-  var g = norm(guess);
-  var a = norm(actual);
-  if (!g || !a) return false;
-  // Exact match
-  if (g === a) return true;
-  // Substring containment (either direction)
-  if (a.indexOf(g) !== -1 || g.indexOf(a) !== -1) return true;
-  // Levenshtein distance within 20% of title length
-  var maxDist = Math.max(1, Math.floor(a.length * 0.2));
-  return levenshtein(g, a) <= maxDist;
+  return normTitle(guess) === normTitle(actual);
+}
+
+function showTitleJudgement(playerIdx, autoResult, actualTitle) {
+  return new Promise(function(resolve) {
+    // Remove any existing judgement banner
+    var existing = document.getElementById('title-judge');
+    if (existing) existing.remove();
+
+    var banner = document.createElement('div');
+    banner.className = 'title-judge ' + (autoResult ? 'matched' : 'no-match');
+    banner.id = 'title-judge';
+
+    var verdict = document.createElement('div');
+    verdict.className = 'title-judge-verdict';
+    verdict.textContent = autoResult ? 'Title matched!' : 'No match';
+    banner.appendChild(verdict);
+
+    var detail = document.createElement('div');
+    detail.className = 'title-judge-detail';
+    detail.textContent = 'Song: ' + actualTitle;
+    banner.appendChild(detail);
+
+    var actions = document.createElement('div');
+    actions.className = 'title-judge-actions';
+
+    var acceptBtn = document.createElement('button');
+    acceptBtn.className = 'title-judge-accept';
+    acceptBtn.textContent = autoResult ? 'Accept +1' : 'Accept (no token)';
+
+    var overrideBtn = document.createElement('button');
+    overrideBtn.className = 'title-judge-override';
+    overrideBtn.textContent = autoResult ? 'Override: no token' : 'Override: award token';
+
+    function cleanup(result) {
+      banner.remove();
+      resolve(result);
+    }
+
+    acceptBtn.addEventListener('click', function() { cleanup(autoResult); });
+    overrideBtn.addEventListener('click', function() { cleanup(!autoResult); });
+
+    actions.appendChild(acceptBtn);
+    actions.appendChild(overrideBtn);
+    banner.appendChild(actions);
+    document.body.appendChild(banner);
+  });
 }
 
 function computeCardSize() {
@@ -3115,12 +3170,14 @@ async function placeCard(playerIdx, position) {
 
   // Token mode: evaluate title guess before placing
   if (gameState.tokenMode && gameState.titleGuess.trim()) {
-    var song = gameState.currentSong;
-    var player = gameState.players[playerIdx];
-    if (fuzzyTitleMatch(gameState.titleGuess, song.title) && player.tokens < TOKEN_MAX) {
-      player.tokens += 1;
-      showToast('Correct title! +1 token (' + player.tokens + '/' + TOKEN_MAX + ')', 'success', 2500);
+    var guessResult = titleMatch(gameState.titleGuess, gameState.currentSong.title);
+    gameState.titleGuess = '';
+    var decision = await showTitleJudgement(playerIdx, guessResult, gameState.currentSong.title);
+    if (decision && gameState.players[playerIdx].tokens < TOKEN_MAX) {
+      gameState.players[playerIdx].tokens += 1;
+      showToast('+1 token (' + gameState.players[playerIdx].tokens + '/' + TOKEN_MAX + ')', 'success', 2000);
     }
+  } else if (gameState.tokenMode) {
     gameState.titleGuess = '';
   }
 
