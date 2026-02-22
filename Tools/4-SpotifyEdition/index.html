@@ -3038,10 +3038,9 @@ function showResumeBanner(saveData) {
 
   var banner = document.createElement('div');
   banner.id = 'resume-banner';
-  banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
-    + 'background:var(--surface);border:1px solid var(--accent);border-radius:14px;'
-    + 'padding:14px 20px;z-index:250;box-shadow:0 4px 20px rgba(0,0,0,0.5);'
-    + 'text-align:center;max-width:90vw;animation:fadeIn 0.3s ease-out;';
+  banner.style.cssText = 'background:var(--surface);border:1px solid var(--accent);border-radius:14px;'
+    + 'padding:14px 20px;box-shadow:0 4px 20px rgba(0,0,0,0.5);'
+    + 'text-align:center;margin:16px auto;max-width:400px;animation:fadeIn 0.3s ease-out;';
 
   var text = document.createElement('div');
   text.style.cssText = 'font-size:14px;color:var(--text);margin-bottom:10px;';
@@ -3070,7 +3069,7 @@ function showResumeBanner(saveData) {
   btns.appendChild(dismissBtn);
 
   banner.appendChild(btns);
-  document.body.appendChild(banner);
+  document.getElementById('home').appendChild(banner);
 }
 
 function songDedupeKey(s) {
