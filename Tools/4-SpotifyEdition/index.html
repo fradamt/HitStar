@@ -1623,9 +1623,14 @@ async function fetchDevices() {
   }
 }
 
+var devicePollInterval = null;
+
 async function showDevicePicker() {
   document.getElementById('device-picker-modal').classList.remove('hidden');
   await refreshDeviceList();
+  // Auto-refresh every 3s while picker is open so newly woken devices appear
+  clearInterval(devicePollInterval);
+  devicePollInterval = setInterval(refreshDeviceList, 3000);
 }
 
 async function refreshDeviceList() {
@@ -1703,7 +1708,7 @@ function appendRefreshButton(container) {
   container.appendChild(refreshBtn);
   var hint = document.createElement('p');
   hint.style.cssText = 'font-size:11px;color:var(--text-dim);margin-top:8px;text-align:center;';
-  hint.textContent = 'Speakers and smart devices must be awake and on the same network to appear.';
+  hint.textContent = 'Don\u2019t see your speaker? Start playing on it from the Spotify app \u2014 it will appear here automatically.';
   container.appendChild(hint);
 }
 
@@ -1742,6 +1747,8 @@ function selectDevice(deviceId, name) {
 }
 
 function closeDevicePicker() {
+  clearInterval(devicePollInterval);
+  devicePollInterval = null;
   document.getElementById('device-picker-modal').classList.add('hidden');
 }
 
