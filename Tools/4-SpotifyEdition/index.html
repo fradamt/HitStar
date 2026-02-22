@@ -922,6 +922,10 @@ input[type="file"] { display: none; }
   </div>
   <!-- Player rows -->
   <div class="game-body" id="game-body"></div>
+  <!-- Reconnect button at bottom -->
+  <div style="padding:8px 16px;text-align:center">
+    <button class="game-topbar-btn" id="game-reconnect-btn" onclick="connectSpotifySDK()" style="display:none">Reconnect Spotify</button>
+  </div>
 </div>
 
 <!-- DISCARD PILE MODAL -->
@@ -1058,6 +1062,7 @@ function initializeSDKPlayer(token) {
     sdkReady = true;
     updateSDKStatus('Connected');
     updateHomeConnectUI();
+    showGameReconnectBtn(false);
     showToast('Spotify connected - ready to play!', 'success', 3000);
   });
 
@@ -1110,6 +1115,11 @@ function updateHomeConnectUI() {
   var prompt = document.getElementById('home-connect-prompt');
   if (!prompt) return;
   prompt.style.display = sdkReady ? 'none' : '';
+}
+
+function showGameReconnectBtn(show) {
+  var btn = document.getElementById('game-reconnect-btn');
+  if (btn) btn.style.display = show ? '' : 'none';
 }
 
 function connectSpotifySDK() {
@@ -1480,6 +1490,7 @@ async function startSDKPlayback(song) {
       if (sdkPlayer) sdkPlayer.disconnect();
       updateSDKStatus('Session expired');
       updateHomeConnectUI();
+      showGameReconnectBtn(true);
       showToast('Spotify session expired. Please reconnect.', 'error');
       return false;
     }
