@@ -1211,6 +1211,7 @@ var sdkReady = false;
 var sdkToken = null;
 var sdkTokenExpiry = 0;
 var sdkRefreshToken = null;
+var spotifyUserId = null;
 var tokenRefreshTimer = null;
 var tokenRefreshInProgress = false;
 var sdkIsPlaying = false;
@@ -1299,15 +1300,32 @@ async function loadBuiltinPlaylist() {
   }
 }
 
+async function ensureUserId() {
+  if (spotifyUserId) return;
+  if (!isTokenValid()) return;
+  try {
+    var resp = await spotifyFetch('https://api.spotify.com/v1/me');
+    if (resp && resp.ok) {
+      var me = await resp.json();
+      spotifyUserId = me.id;
+    }
+  } catch (e) {}
+}
+
 async function fetchMyPlaylists(offset) {
   offset = offset || 0;
   if (!isTokenValid()) return { items: [], total: 0 };
+  await ensureUserId();
   try {
     var resp = await spotifyFetch('https://api.spotify.com/v1/me/playlists?limit=20&offset=' + offset);
     if (!resp || !resp.ok) return { items: [], total: 0 };
     var data = await resp.json();
     return {
-      items: data.items.filter(Boolean).map(function(p) {
+      items: data.items.filter(Boolean).filter(function(p) {
+        // Only show playlists the user owns or collaborates on (Spotify API restriction)
+        if (p.collaborative) return true;
+        return spotifyUserId && p.owner && p.owner.id === spotifyUserId;
+      }).map(function(p) {
         return {
           id: p.id,
           name: p.name,
@@ -2122,6 +2140,7 @@ function applyToken(token, expiresIn, action) {
   if (window.Spotify && window.Spotify.Player && !sdkReady) {
     initializeSDKPlayer();
   }
+
 }
 
 // ==================== SETTINGS DATA ====================
@@ -2246,6 +2265,12 @@ function renderMyPlaylists() {
   title.className = 'playlist-section-title';
   title.textContent = 'My Playlists';
   container.appendChild(title);
+
+  var hint = document.createElement('div');
+  hint.className = 'playlist-section-hint';
+  hint.textContent = 'Only playlists you created can be used. To use another playlist, copy it in Spotify first.';
+  hint.style.cssText = 'color: var(--text-dim); font-size: 0.8rem; margin: -0.3rem 0 0.5rem 0;';
+  container.appendChild(hint);
 
   for (var i = 0; i < mySpotifyPlaylists.length; i++) {
     renderPlaylistCard(mySpotifyPlaylists[i], container);
