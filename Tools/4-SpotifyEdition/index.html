@@ -2013,6 +2013,16 @@ function getActiveCategories() {
   return gameSettings.activeCategories;
 }
 
+function pruneStaleCategories() {
+  if (!gameSettings.activeCategories || gameSettings.activeCategories.length === 0) return;
+  var currentCats = getCategories();
+  var pruned = gameSettings.activeCategories.filter(function(c) { return currentCats.indexOf(c) !== -1; });
+  if (pruned.length !== gameSettings.activeCategories.length) {
+    gameSettings.activeCategories = pruned;
+    saveSetting('activeCategories', pruned);
+  }
+}
+
 async function loadExampleSongs() {
   try {
     var resp = await fetch('songs-example.json');
@@ -2021,6 +2031,7 @@ async function loadExampleSongs() {
       if (!Array.isArray(data)) return;
       songs = data;
       saveSongsToStorage();
+      pruneStaleCategories();
       renderSongList();
       renderCategoryFilters();
     }
@@ -2029,6 +2040,10 @@ async function loadExampleSongs() {
 
 // ==================== NAVIGATION ====================
 function showScreen(id) {
+  // If navigating away from the game board while a game is active, end it cleanly
+  if (gameState.active && id !== 'game-board') {
+    quitGame();
+  }
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.nav button').forEach(function(b) { b.classList.remove('active'); });
@@ -2623,6 +2638,7 @@ function importSongs(input) {
         if (songs.length > 0 && !confirm('Replace ' + songs.length + ' existing songs with ' + valid.length + ' imported songs?')) return;
         songs = valid;
         saveSongsToStorage();
+        pruneStaleCategories();
         renderSongList();
         renderCategoryFilters();
         alert('Imported ' + valid.length + ' songs!' + (skipped > 0 ? ' (' + skipped + ' invalid entries skipped)' : ''));
@@ -3084,16 +3100,33 @@ function loadGameSave() {
 }
 
 function restoreGame(saveData) {
+  // Validate saved data structure before restoring
+  if (!saveData || !Array.isArray(saveData.players) || saveData.players.length === 0) {
+    showToast('Saved game data is invalid — starting fresh', 'error', 4000);
+    clearGameSave();
+    return;
+  }
+  for (var i = 0; i < saveData.players.length; i++) {
+    var p = saveData.players[i];
+    if (!p || !p.name || !Array.isArray(p.cards)) {
+      showToast('Saved game data is corrupted — starting fresh', 'error', 4000);
+      clearGameSave();
+      return;
+    }
+  }
+  var cp = parseInt(saveData.currentPlayer) || 0;
+  if (cp < 0 || cp >= saveData.players.length) cp = 0;
+
   gameState = {
     active: true,
-    players: saveData.players || [],
-    currentPlayer: saveData.currentPlayer || 0,
+    players: saveData.players,
+    currentPlayer: cp,
     currentSong: saveData.currentSong || null,
-    discardPile: saveData.discardPile || [],
+    discardPile: Array.isArray(saveData.discardPile) ? saveData.discardPile : [],
     // Always restore to 'waiting' so user can click deck to continue
     phase: 'waiting',
     winCount: saveData.winCount || 10,
-    usedSongIds: saveData.usedSongIds || [],
+    usedSongIds: Array.isArray(saveData.usedSongIds) ? saveData.usedSongIds : [],
     tokenMode: saveData.tokenMode || false,
     titleGuess: '',
     challengeActive: -1
@@ -3795,9 +3828,9 @@ function createPlacementSlot(playerIdx, position, isEmpty) {
 
 // ==================== TOKEN ACTIONS ====================
 function findCorrectPosition(player, song) {
-  var year = song.year || 0;
+  var year = parseInt(song.year) || 0;
   for (var i = 0; i < player.cards.length; i++) {
-    if (year <= (player.cards[i].song.year || 0)) return i;
+    if (year <= (parseInt(player.cards[i].song.year) || 0)) return i;
   }
   return player.cards.length;
 }
@@ -3910,6 +3943,7 @@ async function placeCard(playerIdx, position) {
 
     // Trigger flight
     await sleep(20);
+    if (!gameState.active) { flyCard.remove(); return; }
     flyCard.style.left = targetRect.left + 'px';
     flyCard.style.top = targetRect.top + 'px';
     flyCard.style.width = targetRect.width + 'px';
@@ -3917,11 +3951,13 @@ async function placeCard(playerIdx, position) {
 
     // Wait for flight to arrive
     await sleep(460);
+    if (!gameState.active) { flyCard.remove(); return; }
 
     // Flip: rotate to 90deg (hide face-down)
     flyCard.style.transition = 'transform 0.15s ease-in';
     flyCard.style.transform = 'rotateY(90deg)';
     await sleep(160);
+    if (!gameState.active) { flyCard.remove(); return; }
 
     // Swap to revealed content and flip back
     flyCard.remove();
@@ -3929,8 +3965,10 @@ async function placeCard(playerIdx, position) {
     placedCard.style.transform = 'rotateY(90deg)';
     placedCard.style.transition = 'transform 0.2s ease-out';
     await sleep(20);
+    if (!gameState.active) return;
     placedCard.style.transform = 'rotateY(0deg)';
     await sleep(220);
+    if (!gameState.active) return;
     placedCard.style.transform = '';
     placedCard.style.transition = '';
   } else if (placedCard) {
@@ -3938,18 +3976,22 @@ async function placeCard(playerIdx, position) {
     placedCard.style.transform = 'rotateY(90deg)';
     placedCard.style.transition = 'transform 0.3s ease-out';
     await sleep(50);
+    if (!gameState.active) return;
     placedCard.style.transform = 'rotateY(0deg)';
     await sleep(350);
+    if (!gameState.active) return;
     placedCard.style.transform = '';
     placedCard.style.transition = '';
   }
 
+  if (!gameState.active) return;
   gameState.phase = 'revealing';
   setGameStatus('Placed: ' + song.artist + ' - ' + (song.year || '????'), '');
   // Un-blur now-playing since the song is revealed
   updateNowPlayingBar(song, false);
 
   await sleep(200);
+  if (!gameState.active) return;
   checkPlacement(playerIdx, position);
 }
 
@@ -4078,8 +4120,8 @@ function keepPlaying() {
   document.getElementById('victory-overlay').classList.add('hidden');
   gameState.phase = 'waiting';
   gameState.active = true;
-  // Bump winCount to prevent re-triggering victory on subsequent turns
-  gameState.winCount = 999;
+  // Disable win limit so players can keep going indefinitely
+  gameState.winCount = Infinity;
   renderGameBoard();
   saveGame();
 }
