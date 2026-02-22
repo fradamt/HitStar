@@ -2485,6 +2485,10 @@ function quitGame() {
   showScreen('home');
 }
 
+function songDedupeKey(s) {
+  return (s.artist + '|' + s.title).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 function getGameSongPool() {
   var pool;
   if (sessionPlaylist && sessionPlaylist.tracks.length > 0) {
@@ -2495,10 +2499,15 @@ function getGameSongPool() {
       ? songs.filter(function(s) { return activeCats.includes(s.category); })
       : songs;
   }
-  // Filter out already-used songs
+  // Filter out already-used songs and deduplicate by artist+title
+  // (same song on different albums has different spotifyIds)
+  var seen = {};
   return pool.filter(function(s) {
-    var id = s.spotifyId || (s.artist + '|' + s.title);
-    return gameState.usedSongIds.indexOf(id) === -1;
+    var key = songDedupeKey(s);
+    if (seen[key]) return false;
+    if (gameState.usedSongIds.indexOf(key) !== -1) return false;
+    seen[key] = true;
+    return true;
   });
 }
 
@@ -2515,8 +2524,7 @@ async function gamePlayNext() {
   }
 
   var song = pool[Math.floor(Math.random() * pool.length)];
-  var songId = song.spotifyId || (song.artist + '|' + song.title);
-  gameState.usedSongIds.push(songId);
+  gameState.usedSongIds.push(songDedupeKey(song));
   gameState.currentSong = song;
   gameState.phase = 'listening';
   gameState.titleGuess = '';
