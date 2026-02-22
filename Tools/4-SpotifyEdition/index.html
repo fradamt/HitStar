@@ -1610,9 +1610,8 @@ function clearPlayerError() {
 
 // ==================== DEVICE PICKER ====================
 async function fetchDevices() {
-  if (!sdkToken) return [];
+  if (!sdkToken) return { devices: [], activeDevice: null };
   try {
-    // Fetch device list and current player state in parallel
     var headers = { 'Authorization': 'Bearer ' + sdkToken };
     var [devResp, playerResp] = await Promise.all([
       fetch('https://api.spotify.com/v1/me/player/devices', { headers: headers }),
@@ -1625,50 +1624,50 @@ async function fetchDevices() {
       devices = devData.devices || [];
     }
 
-    // The currently active device may not appear in /devices (e.g. Sonos groups).
-    // Merge it in from /me/player if missing.
+    // Get the currently active device from /me/player (may have null id, e.g. Sonos)
+    var activeDevice = null;
     if (playerResp.ok && playerResp.status !== 204) {
       try {
         var playerData = await playerResp.json();
-        if (playerData && playerData.device && playerData.device.id) {
-          var activeDevice = playerData.device;
-          var found = devices.some(function(d) { return d.id === activeDevice.id; });
-          if (!found) {
-            devices.push({
-              id: activeDevice.id,
-              name: activeDevice.name,
-              type: activeDevice.type,
-              is_active: true
-            });
+        if (playerData && playerData.device) {
+          activeDevice = playerData.device;
+          // If it has an id and is missing from the list, merge it in
+          if (activeDevice.id) {
+            var found = devices.some(function(d) { return d.id === activeDevice.id; });
+            if (!found) {
+              devices.push({
+                id: activeDevice.id,
+                name: activeDevice.name,
+                type: activeDevice.type,
+                is_active: true
+              });
+            }
           }
         }
-      } catch (e) { /* ignore parse errors for 204 etc */ }
+      } catch (e) {}
     }
 
-    return devices;
+    return { devices: devices, activeDevice: activeDevice };
   } catch (e) {
-    return [];
+    return { devices: [], activeDevice: null };
   }
 }
-
-var devicePollInterval = null;
 
 async function showDevicePicker() {
   document.getElementById('device-picker-modal').classList.remove('hidden');
   await refreshDeviceList();
-  // Auto-refresh every 3s while picker is open so newly woken devices appear
-  clearInterval(devicePollInterval);
-  devicePollInterval = setInterval(refreshDeviceList, 3000);
 }
 
 async function refreshDeviceList() {
   var list = document.getElementById('device-picker-list');
   list.textContent = 'Loading devices...';
 
-  var devices = await fetchDevices();
+  var result = await fetchDevices();
+  var devices = result.devices;
+  var activeDevice = result.activeDevice;
   list.textContent = '';
 
-  if (devices.length === 0) {
+  if (devices.length === 0 && !activeDevice) {
     list.innerHTML = '<p style="color:var(--text-dim);font-size:13px">No devices found. Make sure Spotify is open on at least one device.</p>';
     appendRefreshButton(list);
     return;
@@ -1678,7 +1677,6 @@ async function refreshDeviceList() {
   var seen = {};
   var merged = [];
   devices.forEach(function(d) {
-    // Treat any device named "HitStar Player" as the SDK device
     if (d.name === 'HitStar Player' || d.id === sdkDeviceId) {
       if (!seen['__hitstar__']) {
         seen['__hitstar__'] = true;
@@ -1698,10 +1696,44 @@ async function refreshDeviceList() {
     return a.name.localeCompare(b.name);
   });
 
+  // "Current Spotify device" option — plays on whatever Spotify is currently using.
+  // This catches devices with null IDs (Sonos groups, restricted devices) that
+  // don't appear in /me/player/devices.
+  var activeItem = document.createElement('button');
+  activeItem.className = 'device-item';
+  if (externalDeviceId === '__active__') activeItem.classList.add('selected');
+  var activeName = activeDevice && activeDevice.name ? activeDevice.name : 'No active device';
+  var activeIcon = '\uD83C\uDFB5';
+  if (activeDevice) {
+    activeIcon = activeDevice.type === 'Speaker' ? '\uD83D\uDD0A'
+      : activeDevice.type === 'Smartphone' ? '\uD83D\uDCF1'
+      : activeDevice.type === 'Computer' ? '\uD83D\uDCBB'
+      : activeDevice.type === 'TV' ? '\uD83D\uDCFA'
+      : activeDevice.type === 'CastVideo' ? '\uD83D\uDCFA'
+      : activeDevice.type === 'Game_console' ? '\uD83C\uDFAE'
+      : activeDevice.type === 'Automobile' ? '\uD83D\uDE97'
+      : '\uD83C\uDFB5';
+  }
+  activeItem.innerHTML = activeIcon + ' Current Spotify device' +
+    '<span style="display:block;font-size:12px;color:var(--text-dim);margin-top:2px">' +
+    (activeDevice ? activeName : 'Start playing on any device in the Spotify app') + '</span>';
+  activeItem.addEventListener('click', function() {
+    selectDevice('__active__', activeName);
+    closeDevicePicker();
+  });
+  list.appendChild(activeItem);
+
+  // Separator
+  var sep = document.createElement('div');
+  sep.style.cssText = 'border-top:1px solid #333;margin:10px 0;';
+  list.appendChild(sep);
+
   merged.forEach(function(d) {
     var item = document.createElement('button');
     item.className = 'device-item';
-    var isSelected = d._isSDK ? !externalDeviceId : (d.id === externalDeviceId);
+    var isSelected = d._isSDK
+      ? (!externalDeviceId)
+      : (externalDeviceId !== '__active__' && d.id === externalDeviceId);
     if (isSelected) item.classList.add('selected');
 
     var icon = d.type === 'Speaker' ? '\uD83D\uDD0A'
@@ -1734,10 +1766,6 @@ function appendRefreshButton(container) {
   refreshBtn.textContent = '\u21BB Refresh devices';
   refreshBtn.addEventListener('click', function() { refreshDeviceList(); });
   container.appendChild(refreshBtn);
-  var hint = document.createElement('p');
-  hint.style.cssText = 'font-size:11px;color:var(--text-dim);margin-top:8px;text-align:center;';
-  hint.textContent = 'Don\u2019t see your speaker? Start playing on it from the Spotify app \u2014 it will appear here automatically.';
-  container.appendChild(hint);
 }
 
 function selectDevice(deviceId, name) {
@@ -1751,8 +1779,8 @@ function selectDevice(deviceId, name) {
   if (gameLabel) gameLabel.textContent = deviceId ? name : '';
 
   if (deviceId) {
-    // Transfer playback to the selected external device
-    if (sdkToken) {
+    // Transfer playback to the selected device (skip for __active__ — already playing there)
+    if (deviceId !== '__active__' && sdkToken) {
       fetch('https://api.spotify.com/v1/me/player', {
         method: 'PUT',
         headers: {
@@ -1775,8 +1803,6 @@ function selectDevice(deviceId, name) {
 }
 
 function closeDevicePicker() {
-  clearInterval(devicePollInterval);
-  devicePollInterval = null;
   document.getElementById('device-picker-modal').classList.add('hidden');
 }
 
@@ -2035,8 +2061,14 @@ async function searchSpotifyId(song) {
 }
 
 async function playTrackById(trackId) {
-  var deviceId = externalDeviceId || sdkDeviceId;
-  var resp = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
+  // __active__ means "use whatever Spotify is currently playing on" (no device_id needed)
+  var url = 'https://api.spotify.com/v1/me/player/play';
+  if (externalDeviceId && externalDeviceId !== '__active__') {
+    url += '?device_id=' + externalDeviceId;
+  } else if (!externalDeviceId && sdkDeviceId) {
+    url += '?device_id=' + sdkDeviceId;
+  }
+  var resp = await fetch(url, {
     method: 'PUT',
     headers: {
       'Authorization': 'Bearer ' + sdkToken,
