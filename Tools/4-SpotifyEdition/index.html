@@ -287,6 +287,7 @@ input[type="file"] { display: none; }
 /* Game body (player rows) */
 .game-body {
   flex: 1; overflow-y: auto; padding: 16px;
+  padding-right: calc(var(--piles-sidebar-w, 120px) + 16px);
   display: flex; flex-direction: column; gap: 20px;
 }
 
@@ -525,7 +526,7 @@ input[type="file"] { display: none; }
 /* Visual discard pile on game board */
 .discard-pile-visual {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  cursor: pointer; margin-top: 16px; align-self: center;
+  cursor: pointer; align-self: center;
 }
 .discard-pile-card-empty {
   min-width: var(--card-w, 90px); height: var(--card-h, 110px); border-radius: 10px;
@@ -557,10 +558,16 @@ input[type="file"] { display: none; }
   font-size: 12px; color: var(--text-dim);
 }
 
-/* Deck + discard side by side */
+/* Deck + discard fixed sidebar */
 .game-piles {
-  display: flex; justify-content: center; gap: 28px;
-  margin-top: 16px; align-self: center;
+  position: fixed; right: 0; top: 48px; bottom: 0;
+  width: var(--piles-sidebar-w, 120px);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 24px;
+  background: var(--surface); border-left: 1px solid #333;
+  z-index: 9; padding: 12px 8px;
+  /* Override card sizes to fit sidebar */
+  --card-w: 90px; --card-h: 110px;
 }
 .deck-visual {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -668,19 +675,9 @@ input[type="file"] { display: none; }
   color: var(--text); padding: 6px 10px; font-size: 14px;
 }
 
-/* Wide screens: piles move to the side */
+/* Wide screens: give sidebar more room */
 @media (min-width: 900px) {
-  .game-body {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    gap: 20px;
-  }
-  .player-row { grid-column: 1; }
-  .game-piles {
-    grid-column: 2; grid-row: 1 / -1;
-    flex-direction: column; margin-top: 0; align-self: center;
-  }
+  :root { --piles-sidebar-w: 140px; }
 }
 
 /* Guess result flash overlay */
@@ -2742,6 +2739,10 @@ function quitGame() {
   document.getElementById('victory-overlay').classList.add('hidden');
   document.querySelector('.nav').style.display = '';
 
+  // Remove piles sidebar
+  var piles = document.getElementById('game-board').querySelector('.game-piles');
+  if (piles) piles.remove();
+
   // Pause playback
   if (sdkIsPlaying) {
     pausePlayback();
@@ -2881,10 +2882,10 @@ function showTitleJudgeBadge(playerIdx, autoResult) {
 function computeCardSize() {
   var body = document.getElementById('game-body');
   if (!body) return;
-  var isWide = window.innerWidth >= 900;
-  var padding = 32; // 16px each side
-  var pilesWidth = isWide ? 140 : 0;
-  var availableWidth = body.clientWidth - padding - pilesWidth;
+  var cs = getComputedStyle(body);
+  var paddingLR = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  // Content width = inner width minus all padding (includes sidebar reservation)
+  var availableWidth = body.clientWidth - paddingLR;
   var maxCards = 2; // minimum: 2 slots
   for (var i = 0; i < gameState.players.length; i++) {
     var count = gameState.players[i].cards.length + 2; // cards + placement slots
@@ -2897,8 +2898,10 @@ function computeCardSize() {
   if (cardWidth >= 140) { tier = 'large'; cardH = 210; }
   else if (cardWidth >= 110) { tier = 'medium'; cardH = 150; }
   else { tier = 'small'; cardWidth = 90; cardH = 110; }
-  body.style.setProperty('--card-w', cardWidth + 'px');
-  body.style.setProperty('--card-h', cardH + 'px');
+  // Set on #game-board so both game-body and the fixed piles sidebar inherit
+  var board = document.getElementById('game-board');
+  board.style.setProperty('--card-w', cardWidth + 'px');
+  board.style.setProperty('--card-h', cardH + 'px');
   body.classList.remove('card-size-small', 'card-size-medium', 'card-size-large');
   body.classList.add('card-size-' + tier);
 }
@@ -2906,6 +2909,9 @@ function computeCardSize() {
 function renderGameBoard() {
   var body = document.getElementById('game-body');
   body.textContent = '';
+  // Remove previous piles sidebar if any
+  var oldPiles = document.getElementById('game-board').querySelector('.game-piles');
+  if (oldPiles) oldPiles.remove();
   computeCardSize();
 
   for (var p = 0; p < gameState.players.length; p++) {
@@ -3142,7 +3148,7 @@ function renderGameBoard() {
   pile.appendChild(pileLabel);
   pilesContainer.appendChild(pile);
 
-  body.appendChild(pilesContainer);
+  document.getElementById('game-board').appendChild(pilesContainer);
 
   // Auto-focus title guess input in token mode
   if (gameState.tokenMode && gameState.phase === 'listening') {
