@@ -1274,6 +1274,9 @@ var sdkDeviceId = null;
 var sdkReady = false;
 var sdkToken = null;
 var sdkTokenExpiry = 0;
+var sdkRefreshToken = null;
+var tokenRefreshTimer = null;
+var tokenRefreshInProgress = false;
 var sdkIsPlaying = false;
 var sdkProgressInterval = null;
 var sdkCurrentPosition = 0;
@@ -1293,6 +1296,7 @@ var SETTINGS_KEY = 'hitstar_settings';
 var PENDING_KEY = 'hitstar_pending_action';
 var SDK_TOKEN_KEY = 'hitstar_sdk_token';
 var SDK_TOKEN_EXPIRY_KEY = 'hitstar_sdk_token_expiry';
+var SDK_REFRESH_TOKEN_KEY = 'hitstar_sdk_refresh_token';
 var GAME_SAVE_KEY = 'hitstar_game_save';
 
 // SVG icon markup for play/pause buttons
@@ -1464,12 +1468,22 @@ async function transferToHitStar() {
 // Pause playback on whichever device is active
 function pausePlayback() {
   if (externalDeviceId) {
+    sdkIsPlaying = false;
+    updatePlayPauseButtons();
     fetch('https://api.spotify.com/v1/me/player/pause', {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + sdkToken }
-    }).catch(function() {});
-    sdkIsPlaying = false;
-    updatePlayPauseButtons();
+    }).then(function(resp) {
+      if (!resp.ok) {
+        sdkIsPlaying = true;
+        updatePlayPauseButtons();
+        showToast('Failed to pause playback', 'error');
+      }
+    }).catch(function() {
+      sdkIsPlaying = true;
+      updatePlayPauseButtons();
+      showToast('Failed to pause playback', 'error');
+    });
   } else if (sdkPlayer) {
     sdkPlayer.pause();
   }
@@ -1494,10 +1508,21 @@ async function togglePlayback() {
     var endpoint = sdkIsPlaying ? 'pause' : 'play';
     sdkIsPlaying = !sdkIsPlaying;
     updatePlayPauseButtons();
-    await fetch('https://api.spotify.com/v1/me/player/' + endpoint, {
-      method: 'PUT',
-      headers: { 'Authorization': 'Bearer ' + sdkToken }
-    }).catch(function() {});
+    try {
+      var resp = await fetch('https://api.spotify.com/v1/me/player/' + endpoint, {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + sdkToken }
+      });
+      if (!resp.ok) {
+        sdkIsPlaying = !sdkIsPlaying;
+        updatePlayPauseButtons();
+        showToast('Playback toggle failed', 'error');
+      }
+    } catch (e) {
+      sdkIsPlaying = !sdkIsPlaying;
+      updatePlayPauseButtons();
+      showToast('Playback toggle failed', 'error');
+    }
     return;
   }
   if (!sdkPlayer || !sdkReady) {
@@ -1518,12 +1543,24 @@ async function seekPlayback(event, wrapEl) {
   var posMs = Math.floor(pct * sdkDuration);
   if (externalDeviceId) {
     if (!sdkToken) return;
-    await fetch('https://api.spotify.com/v1/me/player/seek?position_ms=' + posMs, {
-      method: 'PUT',
-      headers: { 'Authorization': 'Bearer ' + sdkToken }
-    }).catch(function() {});
+    var prevPosition = sdkCurrentPosition;
     sdkCurrentPosition = posMs;
     updateProgressBars();
+    try {
+      var resp = await fetch('https://api.spotify.com/v1/me/player/seek?position_ms=' + posMs, {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + sdkToken }
+      });
+      if (!resp.ok) {
+        sdkCurrentPosition = prevPosition;
+        updateProgressBars();
+        showToast('Seek failed', 'error');
+      }
+    } catch (e) {
+      sdkCurrentPosition = prevPosition;
+      updateProgressBars();
+      showToast('Seek failed', 'error');
+    }
     return;
   }
   if (!sdkPlayer || !sdkReady) return;
@@ -1789,7 +1826,11 @@ function selectDevice(deviceId, name) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ device_ids: [deviceId], play: sdkIsPlaying })
-      }).catch(function() {});
+      }).then(function(resp) {
+        if (!resp.ok) showToast('Failed to transfer playback to ' + name, 'error');
+      }).catch(function() {
+        showToast('Failed to transfer playback to ' + name, 'error');
+      });
     }
     // External device: poll for state, stop SDK progress tracking
     stopProgressTracking();
@@ -1914,10 +1955,20 @@ function applyToken(token, expiresIn, action) {
 
 // ==================== SONGS DATA ====================
 function loadSongs() {
+  var stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return;
   try {
-    var stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) songs = JSON.parse(stored);
-  } catch (e) { songs = []; }
+    var parsed = JSON.parse(stored);
+    if (Array.isArray(parsed)) {
+      songs = parsed;
+    } else {
+      showToast('Song library format invalid — starting fresh', 'error', 5000);
+    }
+  } catch (e) {
+    // Backup corrupted data before discarding
+    try { localStorage.setItem(STORAGE_KEY + '_backup', stored); } catch (ignore) {}
+    showToast('Song library corrupted — backup saved. Re-import your songs.', 'error', 6000);
+  }
 }
 
 function saveSongsToStorage() {
@@ -1967,6 +2018,7 @@ async function loadExampleSongs() {
     var resp = await fetch('songs-example.json');
     if (resp.ok) {
       var data = await resp.json();
+      if (!Array.isArray(data)) return;
       songs = data;
       saveSongsToStorage();
       renderSongList();
@@ -2046,6 +2098,15 @@ async function searchSpotifyId(song) {
     var tracks = data.tracks && data.tracks.items;
     if (tracks && tracks.length > 0) {
       var track = tracks[0];
+      // Basic name matching: verify artist/title reasonably match before caching
+      var returnedArtists = (track.artists || []).map(function(a) { return a.name.toLowerCase(); }).join(' ');
+      var returnedTitle = (track.name || '').toLowerCase();
+      var wantArtist = song.artist.toLowerCase();
+      var wantTitle = song.title.toLowerCase();
+      if (returnedArtists.indexOf(wantArtist) === -1 && wantArtist.indexOf(returnedArtists.split(' ')[0]) === -1 &&
+          returnedTitle.indexOf(wantTitle) === -1 && wantTitle.indexOf(returnedTitle) === -1) {
+        return null;
+      }
       var newId = track.id;
       song.spotifyId = newId;
       // Grab album art (prefer 300px, fall back to largest)
@@ -2550,12 +2611,21 @@ function importSongs(input) {
     try {
       var data = JSON.parse(e.target.result);
       if (Array.isArray(data)) {
-        if (songs.length > 0 && !confirm('Replace ' + songs.length + ' existing songs with ' + data.length + ' imported songs?')) return;
-        songs = data;
+        var valid = data.filter(function(entry) {
+          return entry && typeof entry.artist === 'string' && entry.artist.trim() &&
+                 typeof entry.title === 'string' && entry.title.trim();
+        });
+        var skipped = data.length - valid.length;
+        if (valid.length === 0) {
+          alert('No valid songs found. Each entry needs at least "artist" and "title" strings.');
+          return;
+        }
+        if (songs.length > 0 && !confirm('Replace ' + songs.length + ' existing songs with ' + valid.length + ' imported songs?')) return;
+        songs = valid;
         saveSongsToStorage();
         renderSongList();
         renderCategoryFilters();
-        alert('Imported ' + data.length + ' songs!');
+        alert('Imported ' + valid.length + ' songs!' + (skipped > 0 ? ' (' + skipped + ' invalid entries skipped)' : ''));
       } else {
         alert('Invalid format: expected a JSON array.');
       }
@@ -2583,6 +2653,8 @@ function importFromText() {
 
   var lines = text.split('\n').filter(function(l) { return l.trim(); });
   var added = 0;
+  var duplicates = 0;
+  var malformed = 0;
 
   lines.forEach(function(line) {
     line = line.trim();
@@ -2620,7 +2692,11 @@ function importFromText() {
       if (!exists) {
         songs.push({ artist: artist, title: title, year: year, category: category, spotifyId: spotifyId, qrCode: qrCode });
         added++;
+      } else {
+        duplicates++;
       }
+    } else {
+      malformed++;
     }
   });
 
@@ -2628,7 +2704,10 @@ function importFromText() {
   renderSongList();
   renderCategoryFilters();
   document.getElementById('csv-input').value = '';
-  alert('Imported ' + added + ' new songs (' + (lines.length - added) + ' skipped as duplicates).');
+  var msg = 'Imported ' + added + ' new songs.';
+  if (duplicates > 0) msg += ' ' + duplicates + ' duplicates skipped.';
+  if (malformed > 0) msg += ' ' + malformed + ' malformed lines skipped (missing "Artist - Title" format).';
+  alert(msg);
 }
 
 // ==================== SPOTIFY AUTH (PKCE) ====================
@@ -2986,7 +3065,7 @@ function saveGame() {
     };
     localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(saveData));
   } catch (e) {
-    // Silently fail if storage is full
+    showToast('Could not save game — storage may be full', 'error');
   }
 }
 
@@ -3086,10 +3165,13 @@ function getGameSongPool() {
       ? songs.filter(function(s) { return activeCats.includes(s.category); })
       : songs;
   }
-  // Filter out already-used songs and deduplicate by artist+title
+  // Filter out yearless songs, already-used songs, and deduplicate by artist+title
   // (same song on different albums has different spotifyIds)
   var seen = {};
   return pool.filter(function(s) {
+    // Yearless songs break chronological ordering — skip them
+    var yr = parseInt(s.year);
+    if (!yr || yr <= 0) return false;
     var key = songDedupeKey(s);
     if (seen[key]) return false;
     if (gameState.usedSongIds.indexOf(key) !== -1) return false;
@@ -3800,6 +3882,7 @@ async function placeCard(playerIdx, position) {
   player.cards.splice(position, 0, cardData);
   renderGameBoard();
   await sleep(50);
+  if (!gameState.active) return;
 
   // Find the newly placed card in the DOM
   var rows = document.querySelectorAll('.player-row');
@@ -4183,7 +4266,7 @@ window.addEventListener('resize', function() {
 
 // ==================== SERVICE WORKER ====================
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(function() {});
+  navigator.serviceWorker.register('sw.js').catch(function(err) { console.warn('SW registration failed:', err); });
 }
 
 // ==================== STARTUP ====================
