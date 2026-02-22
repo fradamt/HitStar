@@ -1868,10 +1868,12 @@ function init() {
   updateHomeConnectUI();
   updateSessionPlaylistIndicator();
 
-  // Check for saved game to resume
-  var savedGame = loadGameSave();
-  if (savedGame && savedGame.active && savedGame.players && savedGame.players.length > 0) {
-    showResumeBanner(savedGame);
+  // Check for saved game to resume (only on homepage, not during a game)
+  if (!gameState.active) {
+    var savedGame = loadGameSave();
+    if (savedGame && savedGame.active && savedGame.players && savedGame.players.length > 0) {
+      showResumeBanner(savedGame);
+    }
   }
 }
 
@@ -2915,8 +2917,10 @@ function startGame() {
     challengeActive: -1
   };
 
-  // Clear any saved game when starting fresh
+  // Clear any saved game and resume banner when starting fresh
   clearGameSave();
+  var oldBanner = document.getElementById('resume-banner');
+  if (oldBanner) oldBanner.remove();
 
   closeGameSetup();
   document.getElementById('victory-overlay').classList.add('hidden');
