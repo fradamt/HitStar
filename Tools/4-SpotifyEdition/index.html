@@ -857,6 +857,31 @@ input[type="file"] { display: none; }
   transition: transform 0.1s;
 }
 .title-judge-override:active { transform: scale(0.95); }
+
+/* Device picker */
+.device-item {
+  display: block; width: 100%; text-align: left;
+  background: var(--bg); border: 1px solid #444; border-radius: 10px;
+  color: var(--text); padding: 14px 16px; font-size: 15px;
+  cursor: pointer; margin-bottom: 8px; transition: border-color 0.2s;
+}
+.device-item:hover { border-color: var(--accent); }
+.device-item.selected { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.device-picker-hint {
+  font-size: 12px; color: var(--text-dim); margin-bottom: 14px;
+}
+
+/* Game topbar device button */
+.game-topbar-device {
+  background: none; border: none; color: var(--text-dim);
+  cursor: pointer; padding: 4px; display: flex; align-items: center;
+  font-size: 18px; line-height: 1;
+}
+.game-topbar-device:hover { color: var(--accent); }
+.game-topbar-device-name {
+  font-size: 11px; color: var(--accent); max-width: 80px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 </style>
 </head>
 <body>
@@ -969,6 +994,10 @@ input[type="file"] { display: none; }
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="connectSpotifySDK()" id="btn-connect-sdk">Connect Spotify</button>
       <span id="sdk-connection-status" style="font-size:13px;color:var(--text-dim)"></span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
+      <button class="btn btn-sm btn-outline" onclick="showDevicePicker()">Choose Device</button>
+      <span id="current-device-name" style="font-size:13px;color:var(--accent)">HitStar Player (this browser)</span>
     </div>
   </div>
 
@@ -1123,6 +1152,8 @@ input[type="file"] { display: none; }
 <div id="game-board" class="screen">
   <!-- Top bar -->
   <div class="game-topbar">
+    <button class="game-topbar-device" onclick="showDevicePicker()" title="Choose output device">&#128266;</button>
+    <span class="game-topbar-device-name" id="game-device-name"></span>
     <button class="sdk-play-btn" id="game-play-btn" onclick="togglePlayback()">
       <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
     </button>
@@ -1182,6 +1213,18 @@ input[type="file"] { display: none; }
   </div>
 </div>
 
+<!-- DEVICE PICKER MODAL -->
+<div class="modal-overlay hidden" id="device-picker-modal">
+  <div class="modal" style="max-width:400px">
+    <h2>Output Device</h2>
+    <p class="device-picker-hint">Choose where to play music. HitStar controls playback on any device.</p>
+    <div id="device-picker-list"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-outline btn-block" onclick="closeDevicePicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- NAVIGATION -->
 <nav class="nav">
   <button onclick="showScreen('home')" id="nav-home" class="active">
@@ -1223,6 +1266,11 @@ var sdkProgressInterval = null;
 var sdkCurrentPosition = 0;
 var sdkDuration = 0;
 var sdkDeviceLost = false; // true when playback transferred to another device
+
+// External device playback (null = use SDK player in browser)
+var externalDeviceId = null;
+var externalDeviceName = '';
+var externalPollInterval = null;
 
 // Session playlist state
 var sessionPlaylist = null;
@@ -1391,6 +1439,20 @@ async function transferToHitStar() {
   }
 }
 
+// Pause playback on whichever device is active
+function pausePlayback() {
+  if (externalDeviceId) {
+    fetch('https://api.spotify.com/v1/me/player/pause', {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + sdkToken }
+    }).catch(function() {});
+    sdkIsPlaying = false;
+    updatePlayPauseButtons();
+  } else if (sdkPlayer) {
+    sdkPlayer.pause();
+  }
+}
+
 // ==================== PLAY/PAUSE CONTROLS ====================
 function updatePlayPauseButtons() {
   var btn1 = document.getElementById('sdk-play-btn-listening');
@@ -1405,6 +1467,17 @@ function updatePlayPauseButtons() {
 }
 
 async function togglePlayback() {
+  if (externalDeviceId) {
+    if (!sdkToken) return;
+    var endpoint = sdkIsPlaying ? 'pause' : 'play';
+    sdkIsPlaying = !sdkIsPlaying;
+    updatePlayPauseButtons();
+    await fetch('https://api.spotify.com/v1/me/player/' + endpoint, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + sdkToken }
+    }).catch(function() {});
+    return;
+  }
   if (!sdkPlayer || !sdkReady) {
     showToast('Spotify not connected. Go to Settings to connect.', 'error');
     return;
@@ -1415,12 +1488,23 @@ async function togglePlayback() {
   sdkPlayer.togglePlay();
 }
 
-function seekPlayback(event, wrapEl) {
-  if (!sdkPlayer || !sdkReady || sdkDuration === 0) return;
+async function seekPlayback(event, wrapEl) {
+  if (sdkDuration === 0) return;
   var rect = wrapEl.getBoundingClientRect();
   var x = event.clientX - rect.left;
   var pct = Math.max(0, Math.min(1, x / rect.width));
   var posMs = Math.floor(pct * sdkDuration);
+  if (externalDeviceId) {
+    if (!sdkToken) return;
+    await fetch('https://api.spotify.com/v1/me/player/seek?position_ms=' + posMs, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + sdkToken }
+    }).catch(function() {});
+    sdkCurrentPosition = posMs;
+    updateProgressBars();
+    return;
+  }
+  if (!sdkPlayer || !sdkReady) return;
   sdkPlayer.seek(posMs);
 }
 
@@ -1460,6 +1544,34 @@ function resetProgressBars() {
   stopProgressTracking();
 }
 
+// ==================== EXTERNAL DEVICE POLLING ====================
+function startExternalPolling() {
+  stopExternalPolling();
+  externalPollInterval = setInterval(function() {
+    if (!externalDeviceId || !sdkToken) return;
+    fetch('https://api.spotify.com/v1/me/player', {
+      headers: { 'Authorization': 'Bearer ' + sdkToken }
+    }).then(function(resp) {
+      if (resp.status === 204) return null; // no active playback
+      return resp.json();
+    }).then(function(data) {
+      if (!data) return;
+      sdkIsPlaying = data.is_playing;
+      sdkCurrentPosition = data.progress_ms || 0;
+      sdkDuration = (data.item && data.item.duration_ms) || 0;
+      updatePlayPauseButtons();
+      updateProgressBars();
+    }).catch(function() {});
+  }, 1000);
+}
+
+function stopExternalPolling() {
+  if (externalPollInterval) {
+    clearInterval(externalPollInterval);
+    externalPollInterval = null;
+  }
+}
+
 function showPlayerError(msg) {
   var e1 = document.getElementById('sdk-error-listening');
   var e2 = document.getElementById('sdk-error-revealed');
@@ -1469,6 +1581,87 @@ function showPlayerError(msg) {
 
 function clearPlayerError() {
   showPlayerError('');
+}
+
+// ==================== DEVICE PICKER ====================
+async function fetchDevices() {
+  if (!sdkToken) return [];
+  try {
+    var resp = await fetch('https://api.spotify.com/v1/me/player/devices', {
+      headers: { 'Authorization': 'Bearer ' + sdkToken }
+    });
+    if (!resp.ok) return [];
+    var data = await resp.json();
+    return data.devices || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function showDevicePicker() {
+  var list = document.getElementById('device-picker-list');
+  list.textContent = 'Loading devices...';
+  document.getElementById('device-picker-modal').classList.remove('hidden');
+
+  var devices = await fetchDevices();
+  list.textContent = '';
+
+  if (devices.length === 0) {
+    list.textContent = 'No devices found. Make sure Spotify is open on at least one device.';
+    return;
+  }
+
+  devices.forEach(function(d) {
+    var item = document.createElement('button');
+    item.className = 'device-item';
+    var isSelected = externalDeviceId
+      ? d.id === externalDeviceId
+      : (d.id === sdkDeviceId);
+    if (isSelected) item.classList.add('selected');
+
+    var icon = d.type === 'Speaker' ? '\uD83D\uDD0A'
+      : d.type === 'Smartphone' ? '\uD83D\uDCF1'
+      : d.type === 'Computer' ? '\uD83D\uDCBB'
+      : d.type === 'TV' ? '\uD83D\uDCFA'
+      : d.type === 'CastVideo' ? '\uD83D\uDCFA'
+      : d.type === 'Game_console' ? '\uD83C\uDFAE'
+      : '\uD83C\uDFB5';
+
+    item.textContent = icon + ' ' + d.name;
+    if (d.id === sdkDeviceId) {
+      item.textContent += ' (this browser)';
+    }
+
+    item.addEventListener('click', function() {
+      selectDevice(d.id === sdkDeviceId ? null : d.id, d.name);
+      closeDevicePicker();
+    });
+    list.appendChild(item);
+  });
+}
+
+function selectDevice(deviceId, name) {
+  externalDeviceId = deviceId;
+  externalDeviceName = deviceId ? name : '';
+
+  // Update labels
+  var label = document.getElementById('current-device-name');
+  if (label) label.textContent = deviceId ? name : 'HitStar Player (this browser)';
+  var gameLabel = document.getElementById('game-device-name');
+  if (gameLabel) gameLabel.textContent = deviceId ? name : '';
+
+  if (deviceId) {
+    // External device: poll for state, stop SDK progress tracking
+    stopProgressTracking();
+    startExternalPolling();
+  } else {
+    // Back to SDK player: stop polling, SDK events handle state
+    stopExternalPolling();
+  }
+}
+
+function closeDevicePicker() {
+  document.getElementById('device-picker-modal').classList.add('hidden');
 }
 
 // ==================== INIT ====================
@@ -1663,7 +1856,7 @@ async function playSong(song) {
 
   showScreen('now-playing');
 
-  if (sdkReady && sdkDeviceId) {
+  if (externalDeviceId || (sdkReady && sdkDeviceId)) {
     // Will auto-resolve spotifyId via Search API if missing
     var success = await startSDKPlayback(song);
     if (success) {
@@ -1673,7 +1866,7 @@ async function playSong(song) {
     }
   }
 
-  if (!sdkReady) {
+  if (!sdkReady && !externalDeviceId) {
     document.getElementById('np-status-text').textContent = 'Spotify not connected';
     document.getElementById('np-status-sub').textContent = 'Go to Settings to connect your Spotify account';
     showPlayerError('Connect Spotify in Settings to enable playback');
@@ -1720,7 +1913,8 @@ async function searchSpotifyId(song) {
 }
 
 async function playTrackById(trackId) {
-  var resp = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + sdkDeviceId, {
+  var deviceId = externalDeviceId || sdkDeviceId;
+  var resp = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
     headers: {
       'Authorization': 'Bearer ' + sdkToken,
@@ -1732,7 +1926,8 @@ async function playTrackById(trackId) {
 }
 
 async function startSDKPlayback(song) {
-  if (!sdkReady || !sdkDeviceId || !sdkToken) return false;
+  if (!sdkToken) return false;
+  if (!externalDeviceId && (!sdkReady || !sdkDeviceId)) return false;
 
   // Always verify the track ID via search to catch wrong-song mappings.
   // searchSpotifyId updates song.spotifyId and caches the result.
@@ -1743,15 +1938,15 @@ async function startSDKPlayback(song) {
   if (!song.spotifyId) return false;
 
   try {
-    // If playback was transferred to another device, reclaim it first
-    if (sdkDeviceLost) {
+    // If using SDK player and playback was transferred away, reclaim it first
+    if (!externalDeviceId && sdkDeviceLost) {
       await transferToHitStar();
     }
 
     var resp = await playTrackById(song.spotifyId);
 
-    // If the device isn't active (transferred away), reclaim and retry
-    if (resp.status === 404 || resp.status === 502) {
+    // If SDK device isn't active (transferred away), reclaim and retry
+    if (!externalDeviceId && (resp.status === 404 || resp.status === 502)) {
       var transferred = await transferToHitStar();
       if (transferred) {
         resp = await playTrackById(song.spotifyId);
@@ -2548,8 +2743,8 @@ function quitGame() {
   document.querySelector('.nav').style.display = '';
 
   // Pause playback
-  if (sdkPlayer && sdkIsPlaying) {
-    sdkPlayer.pause();
+  if (sdkIsPlaying) {
+    pausePlayback();
   }
 
   showScreen('home');
@@ -2604,11 +2799,11 @@ async function gamePlayNext() {
   setGameStatus('Listen & guess!', '');
   renderGameBoard();
 
-  // Play via SDK
+  // Play via SDK or external device
   activePlayingSong = song;
   popoutPlayingSong = null;
   updateNowPlayingBar(song, true);
-  if (sdkReady && sdkDeviceId) {
+  if (externalDeviceId || (sdkReady && sdkDeviceId)) {
     resetProgressBars();
     clearPlayerError();
     var success = await startSDKPlayback(song);
@@ -3083,7 +3278,7 @@ function showCardPopout(song, playerIdx) {
   playBtn.addEventListener('click', function(e) {
     e.stopPropagation();
     if (popoutPlayingSong === song && sdkIsPlaying) {
-      if (sdkPlayer) sdkPlayer.pause();
+      pausePlayback();
       playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
     } else {
       popoutPlayingSong = song;
@@ -3414,8 +3609,8 @@ function showVictory(playerIdx) {
   document.getElementById('victory-overlay').classList.remove('hidden');
   gameState.phase = 'done';
 
-  if (sdkPlayer && sdkIsPlaying) {
-    sdkPlayer.pause();
+  if (sdkIsPlaying) {
+    pausePlayback();
   }
 }
 
