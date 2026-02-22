@@ -2660,17 +2660,11 @@ async function placeCard(playerIdx, position) {
   var deckCardEl = document.querySelector('.deck-card');
   var deckRect = deckCardEl ? deckCardEl.getBoundingClientRect() : null;
 
-  // Animate the deck: transition current card out, reveal next player's color underneath
+  // Immediately swap deck to next player's color (revealed underneath the flying card)
   if (deckCardEl) {
     var nextPlayerIdx = (gameState.currentPlayer + 1) % gameState.players.length;
-    deckCardEl.classList.add('dealing');
-    // After a brief delay, swap the deck card color to next player
-    await sleep(200);
     deckCardEl.classList.remove('deck-p' + gameState.currentPlayer);
     deckCardEl.classList.add('deck-p' + nextPlayerIdx);
-    deckCardEl.classList.remove('dealing');
-    deckCardEl.style.opacity = '1';
-    deckCardEl.style.transform = '';
   }
 
   // Insert card into data model and re-render
