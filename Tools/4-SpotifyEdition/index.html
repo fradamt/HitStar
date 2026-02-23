@@ -1412,12 +1412,18 @@ async function fetchPlaylistTracks(playlistId) {
       var year = track.album && track.album.release_date
         ? parseInt(track.album.release_date.substring(0, 4)) || null
         : null;
+      var albumArt = null;
+      if (track.album && track.album.images && track.album.images.length > 0) {
+        albumArt = (track.album.images[1] || track.album.images[0]).url;
+      }
 
       tracks.push({
         artist: artist,
         title: title,
         year: year,
-        spotifyId: track.id
+        spotifyId: track.id,
+        albumArt: albumArt,
+        playlistTrack: true
       });
     }
 
@@ -2449,9 +2455,7 @@ async function openPlaylistDetail(playlist) {
     return;
   }
 
-  // Show first 50 tracks (for performance on large playlists)
-  var showTracks = usable.slice(0, 50);
-  showTracks.forEach(function(t) {
+  usable.forEach(function(t) {
     var row = document.createElement('div');
     row.className = 'playlist-detail-track';
 
@@ -2475,13 +2479,6 @@ async function openPlaylistDetail(playlist) {
 
     tracksList.appendChild(row);
   });
-
-  if (usable.length > 50) {
-    var moreEl = document.createElement('div');
-    moreEl.className = 'playlist-empty';
-    moreEl.textContent = '...and ' + (usable.length - 50) + ' more';
-    tracksList.appendChild(moreEl);
-  }
 
   // Enable start button
   document.getElementById('playlist-detail-start').disabled = false;
@@ -2630,9 +2627,10 @@ async function startSDKPlayback(song) {
   if (!isTokenValid()) return false;
   if (!externalDeviceId && (!sdkReady || !sdkDeviceId)) return false;
 
-  // Always verify the track ID via search to catch wrong-song mappings.
-  // searchSpotifyId updates song.spotifyId and caches the result.
-  if (song.artist && song.title) {
+  // For built-in playlist songs (hardcoded IDs that may go stale), verify
+  // via search. Skip for songs fetched from Spotify playlists — their IDs
+  // are already correct and search can return a different version.
+  if (song.artist && song.title && !song.playlistTrack) {
     await searchSpotifyId(song);
   }
 
